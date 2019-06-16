@@ -40,7 +40,7 @@ namespace Milvaneth.Common
 
         public static string GetMilFilePath(string filename)
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Milvaneth", filename);
+            return Path.GetTempFileName();
         }
     }
 }
