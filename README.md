@@ -40,5 +40,5 @@ Maybe. Whether to implement Pcap packet capture depends on the overall developme
 
 > OpCodes will one day out-dated.
 
-Sure. So I decided to use `GetMessageId` instead of employing enums or consts. Note that those currently in these methods are for test purpose ONLY. In fact, you can get them from config files, from some websites, from databases. Whatever, it's a method.
+Sure. So I decided to use `GetMessageId` instead of employing enums or consts. Note that those literals currently in these methods are for testing purpose ONLY. In fact, you can get them from config files, from some websites, from databases. Whatever, it's a method.
 
