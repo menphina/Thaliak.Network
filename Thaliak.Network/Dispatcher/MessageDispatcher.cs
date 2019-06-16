@@ -41,7 +41,7 @@ namespace Thaliak.Network.Dispatcher
             
             // for default filter set we use, every single filter is mutually exclusive.
             var direction = analyzedPacket.RouteMark.First().GetDirection();
-            if (direction != MessageAttribute.DirectionReceive) return;
+            //if (direction != MessageAttribute.DirectionReceive) return;
 
             NetworkMessageHeader header;
             fixed (byte* p = &analyzedPacket.Message[0])
