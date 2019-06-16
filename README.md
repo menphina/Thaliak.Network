@@ -37,3 +37,8 @@ We have already recognized this. It's because the packets entering the processin
 > Will there be Pcap support?
 
 Maybe. Whether to implement Pcap packet capture depends on the overall development progress of Milvaneth Project, but you are free to implement a PcapSniffer by yourself.
+
+> OpCodes will one day out-dated.
+
+Sure. So I decided to use `GetMessageId` instead of employing enums or consts. Note that those currently in these methods are for test purpose ONLY. In fact, you can get them from config files, from some websites, from databases. Whatever, it's a method.
+
