@@ -32,4 +32,4 @@ True. This is part of a larger project. So there will be some code (such as Milv
 
 > Almost half of packets captured have not been processed!
 
-We have already recognized this. It's because the packets entering the processing flow do not contain TCP ACK packets, which are about half of the total number of packets game client/server send.
+We have already recognized this. It's because the packets entering the processing flow do not contain TCP ACK packets (as they don't contain useful data), which are about half of the total number of packets game client/server send.
