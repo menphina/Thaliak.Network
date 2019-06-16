@@ -18,6 +18,8 @@ Its main function is to identify, filter and analyze FFXIV game data packages. S
 
 5. Stop them when needed.
 
+For actual workable code, see [Demo.cs](https://github.com/menphnia/Thaliak.Network/blob/master/Thaliak.Network/Demo.cs).
+
 > How to add a processor
 
 Inherit `NetworkMessage` Class, override (`new`) two functions and add it to the Type list. That's all.
