@@ -29,3 +29,7 @@ You can view source code of existing processors in [/Thaliak.Network/PublicDefs]
 > This solution looks ... incomplete
 
 True. This is part of a larger project. So there will be some code (such as Milvaneth.Common) and configuration (in the Solution file) left behind. But don't worry, everything needed in building the project is included in this repo.
+
+> Almost half of packets captured have not been processed!
+
+We have already recognized this. It's because the packets entering the processing flow do not contain TCP ACK packets, which are about half of the total number of packets game client/server send.
