@@ -26,10 +26,6 @@ namespace Thaliak.Network.Analyzer
         private const TCPFlags FlagAckPsh = TCPFlags.ACK | TCPFlags.PSH;
         private const TCPFlags FlagFinRst = TCPFlags.FIN | TCPFlags.RST;
         private const int HeaderLength = 40;
-        private const int TimeOffset = 16;
-        private const int LengthOffset = 24;
-        private const int CountOffset = 30;
-        private const int FlagOffset = 32;
 
         public long PacketObserved => _packetObserved;
         public long MessageProcessed => _messageProcessed;
@@ -98,7 +94,7 @@ namespace Thaliak.Network.Analyzer
                 {
                     _buffer.Seek(processedLength, SeekOrigin.Begin); // pos = 0
 
-                    if (_buffer.Length - processedLength <= HeaderLength) // not enough data
+                    if (_buffer.Length - processedLength <= HeaderLength || processedLength > 65536) // not enough data
                     {
                         var remaining = _buffer.Length - processedLength;
                         var tmp = new byte[remaining];
@@ -112,7 +108,10 @@ namespace Thaliak.Network.Analyzer
 
 
                     if (!IsValidHeader(currentHeader))
+                    {
+                        needPurge = true;
                         continue;
+                    }
 
                     NetworkPacketHeader header;
                     fixed (byte* p = &currentHeader[0])
@@ -176,7 +175,7 @@ namespace Thaliak.Network.Analyzer
             {
                 var body = new byte[length - HeaderLength - 2];
                 stream.Seek(2, SeekOrigin.Current);
-                stream.Read(body, 0, body.Length); // pos = bundle.Length
+                stream.Read(body, 0, body.Length); // pos = length
 
                 try
                 {
