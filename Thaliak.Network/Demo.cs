@@ -27,7 +27,7 @@ namespace Thaliak.Network
 
             gnm.Subcribe(NetworkMarketListing.GetMessageId(), WhoAmIVisited);
             gnm.Subcribe(NetworkLogout.GetMessageId(), Logout); // recv -> waitfor25s -> no cancel -> logout
-            gnm.Subcribe(NetworkRetainerSummary.GetMessageId(), LogoutC);
+            gnm.Subcribe(NetworkRetainerSummary.GetMessageId(), RetainerRecv);
 
             gnm.Start();
 
@@ -90,7 +90,7 @@ namespace Thaliak.Network
             logLines.Add($"Logout".PadRight(40));
         }
 
-        private static void LogoutC(NetworkMessageHeader header, NetworkMessage msg)
+        private static void RetainerRecv(NetworkMessageHeader header, NetworkMessage msg)
         {
             logLines.Add($"Retainer {((NetworkRetainerSummary)msg).RetainerName}");
         }
