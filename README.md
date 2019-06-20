@@ -4,7 +4,7 @@ Thaliak.Network is the networking part of Thaliak FFXIV data extraction framewor
 
 Its main function is to identify, filter and analyze FFXIV game data packages. Support for customized processors set up (including connection filters and message analyzers) as well as event subscriptions for sub-message types. Currently Thaliak.Network does not support unpacking Lobby encrypted packets.
 
-This repository not reflecting the current status of development, but we will accept issues and pull requests here.
+This repository is a partial mirror of a internal repository, so it not reflecting the current status of development, but we will accept issues and pull requests here.
 
 # Q & A
 
