@@ -22,6 +22,10 @@ This repository is a partial mirror of a internal repository, so it not reflecti
 
 For actual workable code, see [Demo.cs](https://github.com/menphnia/Thaliak.Network/blob/master/Thaliak.Network/Demo.cs).
 
+> I want raw messages data! Why you dropped them!
+
+Hmmmm. You could just ignore the built in `MessageDispatcher` and write your own version. As data inputed into `MessageDispatcher` is raw byte array.
+
 > How to add a processor
 
 Inherit `NetworkMessage` Class, override (`new`) two functions and add it to the Type list. That's all.
@@ -43,4 +47,3 @@ Maybe. Whether to implement Pcap packet capture depends on the overall developme
 > OpCodes will one day out-dated.
 
 Sure. So I decided to use `GetMessageId` instead of employing enums or consts. Note that those literals currently in these methods are for testing purpose ONLY. In fact, you can get them from config files, from some websites, from databases. Whatever, it's a method.
-
