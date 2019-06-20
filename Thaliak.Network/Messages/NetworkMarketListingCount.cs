@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
+using Thaliak.Network.Utilities;
 
-namespace Thaliak.Network
+namespace Thaliak.Network.Messages
 {
     public class NetworkMarketListingCount : NetworkMessage
     {
@@ -12,14 +13,14 @@ namespace Thaliak.Network
 
         public new static int GetMessageId()
         {
-            return 0x0125;
+            return MessageIdRetriver.Instance.GetMessageId(MessageIdRetriveKey.NetworkMarketListingCount);
         }
 
         public new static unsafe NetworkMarketListingCount Consume(byte[] data, int offset)
         {
             fixed (byte* raw = &data[offset])
             {
-                return (*(NetworkMarketListingCountRaw*) raw).Spawn();
+                return (*(NetworkMarketListingCountRaw*) raw).Spawn(data, offset);
             }
         }
     }
@@ -37,19 +38,19 @@ namespace Thaliak.Network
         public short RequestId;
 
         [FieldOffset(10)]
-        public fixed byte Quantity[2]; // This field is big-endian integer
+        public short Quantity; // This field is big-endian integer
 
         [FieldOffset(12)]
         public int Unknown2;
 
-        public NetworkMarketListingCount Spawn()
+        public NetworkMarketListingCount Spawn(byte[] data, int offset)
         {
             return new NetworkMarketListingCount
             {
                 ItemId = this.ItemId,
                 Unknown1 = this.Unknown1,
                 RequestId = this.RequestId,
-                Quantity = (short)((this.Quantity[0] << 8) | this.Quantity[1]),
+                Quantity = (short)((this.Quantity << 8) | (this.Quantity >> 8)),
                 Unknown2 = this.Unknown2,
             };
         }

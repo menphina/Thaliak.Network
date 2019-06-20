@@ -5,8 +5,9 @@ namespace Milvaneth.Common
 {
     public class FallbackableUrl
     {
-        public const string FallbackDomain = @"READCTED";
-        public const string BackupDomain = @"READCTED";
+        // TODO: url
+        public const string FallbackDomain = @"";
+        public const string BackupDomain = @"";
 
         private string _defaultDomain;
         private string _appendingUrl;

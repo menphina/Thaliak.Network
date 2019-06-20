@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace Milvaneth.Common
 {
@@ -40,7 +41,15 @@ namespace Milvaneth.Common
 
         public static string GetMilFilePath(string filename)
         {
-            return Path.GetTempFileName();
+            return Path.Combine("RuntimeFiles", filename);
+        }
+
+        public static unsafe string ToUtf8String(byte[] arr, int off, int idx, int len)
+        {
+            fixed (byte* p = &arr[off])
+            {
+                return new string((sbyte*) p, idx, len, Encoding.UTF8).Split('\0')[0];
+            }
         }
     }
 }

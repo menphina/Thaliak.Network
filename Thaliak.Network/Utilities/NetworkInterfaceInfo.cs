@@ -6,7 +6,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
-namespace Thaliak.Network.Sniffer
+namespace Thaliak.Network.Utilities
 {
     public class NetworkInterfaceInfo
     {

@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Thaliak.Network.Utilities;
 
-namespace Thaliak.Network
+namespace Thaliak.Network.Messages
 {
     public class NetworkMarketResult : NetworkMessage
     {
@@ -13,14 +14,14 @@ namespace Thaliak.Network
 
         public new static int GetMessageId()
         {
-            return 0x0139;
+            return MessageIdRetriver.Instance.GetMessageId(MessageIdRetriveKey.NetworkMarketResult);
         }
 
         public new static unsafe NetworkMarketResult Consume(byte[] data, int offset)
         {
             fixed (byte* raw = &data[offset])
             {
-                return (*(NetworkMarketResultRaw*) raw).Spawn();
+                return (*(NetworkMarketResultRaw*) raw).Spawn(data, offset);
             }
         }
     }
@@ -28,10 +29,6 @@ namespace Thaliak.Network
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct NetworkMarketResultRaw : INetworkMessageBase<NetworkMarketResult>
     {
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8 * 20)]
-        [FieldOffset(0)]
-        public fixed byte ResultItem[8 * 20];
-
         [FieldOffset(160)]
         public int ItemIndexEnd;
 
@@ -44,16 +41,18 @@ namespace Thaliak.Network
         [FieldOffset(172)]
         public int RequestId;
 
-        public NetworkMarketResult Spawn()
+        public NetworkMarketResult Spawn(byte[] data, int offset)
         {
             const int itemSize = 8;
             const int itemCount = 20;
             var items = new List<NetworkMarketResultItem>(itemCount);
             for (var i = 0; i < itemCount; i++)
             {
-                fixed (byte* p = &ResultItem[i * itemSize])
+                fixed (byte* p = &data[offset + 0 + i * itemSize])
                 {
-                    items.Add(*(NetworkMarketResultItem*)p);
+                    var item = *(NetworkMarketResultItem*) p;
+                    if(item.ItemId != 0)
+                        items.Add(item);
                 }
             }
 

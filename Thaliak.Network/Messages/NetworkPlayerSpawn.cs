@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
+using Thaliak.Network.Utilities;
 
-namespace Thaliak.Network
+namespace Thaliak.Network.Messages
 {
     public class NetworkPlayerSpawn : NetworkMessage
     {
@@ -9,14 +10,14 @@ namespace Thaliak.Network
 
         public new static int GetMessageId()
         {
-            return 0x0175;
+            return MessageIdRetriver.Instance.GetMessageId(MessageIdRetriveKey.NetworkPlayerSpawn);
         }
 
         public new static unsafe NetworkPlayerSpawn Consume(byte[] data, int offset)
         {
             fixed (byte* raw = &data[offset])
             {
-                return (*(NetworkPlayerSpawnRaw*) raw).Spawn();
+                return (*(NetworkPlayerSpawnRaw*) raw).Spawn(data, offset);
             }
         }
     }
@@ -30,7 +31,7 @@ namespace Thaliak.Network
         [FieldOffset(6)]
         public int HomeWorldId;
 
-        public NetworkPlayerSpawn Spawn()
+        public NetworkPlayerSpawn Spawn(byte[] data, int offset)
         {
             return new NetworkPlayerSpawn
             {

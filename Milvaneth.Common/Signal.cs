@@ -3,9 +3,9 @@
     // @formatter:off
     public enum Signal
     {
-        InternalException =                         SignalCatalog.Internal | 0x0000, // Message
-        InternalUnmanagedException =                SignalCatalog.Internal | 0x0001, // Message
-        InternalDebug =                             SignalCatalog.Internal | 0x0002, // Message
+        InternalException =                         SignalCatalog.Internal | 0x0000, // Message, Location
+        InternalUnmanagedException =                SignalCatalog.Internal | 0x0001, // Message, Location
+        InternalDebug =                             SignalCatalog.Internal | 0x0002, // Message, Location
         ClientDisconnected =                        SignalCatalog.Client | 0x0000, // null - Dispose and wait next alive
         ClientNetworkFail =                         SignalCatalog.Client | 0x0001, // Pid - Msgbox and wait next alive (Client PC has no available interface or network)
         ClientProcessDown =                         SignalCatalog.Client | 0x0002, // Pid - Dispose and wait next alive
@@ -13,8 +13,9 @@
         ClientFirewallNotAllowed =                  SignalCatalog.Client | 0x0004, // null - Just log
         MilvanethInsuffcientPrivilege =             SignalCatalog.Milvaneth | 0x0000, // null - Show msgbox and exit (this should not occur but who knows)
         MilvanethSubprocessDown =                   SignalCatalog.Milvaneth | 0x0001, // ProcessName - Try to revive, if failed, show msgbox and exit (except debugger, that will crash EVERYTHING)
-        MinvanethComponentExit =                    SignalCatalog.Milvaneth | 0x0002, // ComponentName - Try to revive, if failed, show msgbox and exit
-        MinvanethFileUnreachable =                  SignalCatalog.Milvaneth | 0x0003, // null - Show msgbox and exit (may use alternative location?)
+        MilvanethComponentExit =                    SignalCatalog.Milvaneth | 0x0002, // ComponentName, RoutineName - Try to revive, if failed, show msgbox and exit
+        MilvanethFileUnreachable =                  SignalCatalog.Milvaneth | 0x0003, // null - Show msgbox and exit (may use alternative location?)
+        MilvanethNeedUpdate =                       SignalCatalog.Milvaneth | 0x0004, // ComponentName, RoutineName - Check update, show msgbox to hint or exit
         CollaborationDisplayMessageBoxYesAndNo =    SignalCatalog.Collaboration | 0x0000, // Message, Title, TicketID
         CollaborationDisplayedMessageBoxResultYes = SignalCatalog.Collaboration | 0x0001, // TicketID
         CollaborationDisplayedMessageBoxResultNo =  SignalCatalog.Collaboration | 0x0002, // TicketID

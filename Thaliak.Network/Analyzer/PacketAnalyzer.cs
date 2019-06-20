@@ -14,24 +14,27 @@ namespace Thaliak.Network.Analyzer
 {
     public sealed class PacketAnalyzer : ISnifferOutput
     {
-        private readonly Filters<IPPacket> _markers;
-        private readonly MemoryStream _buffer;
-        private readonly IAnalyzerOutput _output;
-
-        private BlockingCollection<AnalyzedPacket> _outputQueue;
-        private bool _isStopping;
-        private long _packetObserved;
-        private long _messageProcessed;
-
         private const TCPFlags FlagAckPsh = TCPFlags.ACK | TCPFlags.PSH;
         private const TCPFlags FlagFinRst = TCPFlags.FIN | TCPFlags.RST;
         private const int HeaderLength = 40;
 
-        public long PacketObserved => _packetObserved;
-        public long MessageProcessed => _messageProcessed;
+        private BlockingCollection<AnalyzedPacket> _outputQueue;
+        private bool _isStopping;
+        private long _packetsAnalyzed;
+        private long _messagesProcessed;
+
+        private readonly Filters<IPPacket> _markers;
+        private readonly MemoryStream _buffer;
+        private readonly IAnalyzerOutput _output;
+
+        public long PacketsAnalyzed => _packetsAnalyzed;
+        public long MessagesProcessed => _messagesProcessed;
+        public long MessagesInQueue => this._outputQueue.Count;
 
         public PacketAnalyzer(Filters<IPPacket> markers, IAnalyzerOutput output)
         {
+            this._outputQueue = new BlockingCollection<AnalyzedPacket>();
+
             this._markers = markers;
             this._output = output;
 
@@ -41,13 +44,12 @@ namespace Thaliak.Network.Analyzer
 
         public void Start()
         {
-            this._outputQueue = new BlockingCollection<AnalyzedPacket>();
-
             Task.Factory.StartNew(() =>
             {
                 foreach (var analyzedPacket in this._outputQueue.GetConsumingEnumerable())
                 {
                     this._output.Output(analyzedPacket);
+                    Interlocked.Increment(ref this._messagesProcessed);
                 }
             });
         }
@@ -77,7 +79,7 @@ namespace Thaliak.Network.Analyzer
 
             if(tcpPacket.Payload == null) return;
 
-            Interlocked.Increment(ref this._packetObserved);
+            Interlocked.Increment(ref this._packetsAnalyzed);
 
             var mark = _markers.WhichMatch(ipPacket);
 
@@ -118,8 +120,6 @@ namespace Thaliak.Network.Analyzer
                     {
                         header = *(NetworkPacketHeader*) p;
                     }
-
-                    // TODO: cast
 
                     var timeDelta = Math.Abs(Helper.DateTimeToUnixTimeStamp(DateTime.Now) * 1000 - header.Timestamp);
 
@@ -214,13 +214,13 @@ namespace Thaliak.Network.Analyzer
                 actualLen += len;
                 if (actualLen > content.Length) break;
 
+                // length field is zero here. we will not set it, just use msg.Length
                 var msg = new byte[len];
                 content.Read(msg, 4, len - 4);
 
                 Buffer.BlockCopy(lenBytes, 0, msg, 0, 4);
 
                 EnqueueOutput(new AnalyzedPacket(len, msg, header.Timestamp, mark));
-                Interlocked.Increment(ref this._messageProcessed);
             }
 
             content.Dispose();

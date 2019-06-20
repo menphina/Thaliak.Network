@@ -3,9 +3,11 @@
 using Milvaneth.Common;
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Thaliak.Network.Filter;
@@ -15,31 +17,33 @@ namespace Thaliak.Network.Sniffer
 {
     public class SocketSniffer
     {
-        private const int BUFFER_SIZE = 1024 * 64;
-        private const int MAX_RECEIVE = 100;
+        private const int BufferSize = 1024 * 64;
+        private const int MaxReceive = 100;
 
-        private bool isStopping;
-        private long packetsObserved;
-        private long packetsCaptured;
-        private Socket socket;
-        private readonly ConcurrentStack<SocketAsyncEventArgs> receivePool;
-        private readonly SemaphoreSlim maxReceiveEnforcer = new SemaphoreSlim(MAX_RECEIVE, MAX_RECEIVE);
-        private readonly BufferManager bufferManager;
-        private readonly BlockingCollection<TimestampedData> outputQueue;
-        private readonly Filters<IPPacket> filters;
-        private readonly ISnifferOutput output;
+        private bool _isStopping;
+        private long _packetsObserved;
+        private long _packetsCaptured;
+        private Socket _socket;
 
-        public long PacketsObserved => this.packetsObserved;
-        public long PacketsCaptured => this.packetsCaptured;
+        private readonly ConcurrentStack<SocketAsyncEventArgs> _receivePool;
+        private readonly SemaphoreSlim _maxReceiveEnforcer = new SemaphoreSlim(MaxReceive, MaxReceive);
+        private readonly BufferManager _bufferManager;
+        private readonly BlockingCollection<TimestampedData> _outputQueue;
+        private readonly Filters<IPPacket> _filters;
+        private readonly ISnifferOutput _output;
+
+        public long PacketsObserved => this._packetsObserved;
+        public long PacketsCaptured => this._packetsCaptured;
+        public long PacketsInQueue => this._outputQueue.Count;
 
         public SocketSniffer(NetworkInterfaceInfo nic, Filters<IPPacket> filters, ISnifferOutput output)
         {
-            this.outputQueue = new BlockingCollection<TimestampedData>();
-            this.filters = filters;
-            this.output = output;
+            this._outputQueue = new BlockingCollection<TimestampedData>();
+            this._filters = filters;
+            this._output = output;
 
-            this.bufferManager = new BufferManager(BUFFER_SIZE, MAX_RECEIVE);
-            this.receivePool = new ConcurrentStack<SocketAsyncEventArgs>();
+            this._bufferManager = new BufferManager(BufferSize, MaxReceive);
+            this._receivePool = new ConcurrentStack<SocketAsyncEventArgs>();
             var endPoint = new IPEndPoint(nic.IPAddress, 0);
 
             // Capturing at the IP level is not supported on Linux
@@ -48,9 +52,9 @@ namespace Thaliak.Network.Sniffer
             var protocolType = ProtocolType.IP;
 
             // IPv4
-            this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Raw, protocolType);
-            this.socket.Bind(endPoint);
-            this.socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
+            this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Raw, protocolType);
+            this._socket.Bind(endPoint);
+            this._socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
 
             EnterPromiscuousMode();
         }
@@ -59,12 +63,17 @@ namespace Thaliak.Network.Sniffer
         {
             try
             {
-                this.socket.IOControl(IOControlCode.ReceiveAll, BitConverter.GetBytes(1), new byte[4]);
+                this._socket.IOControl(IOControlCode.ReceiveAll, BitConverter.GetBytes(1), new byte[4]);
             }
             catch (Exception ex)
             {
-                Notifier.Raise(Signal.InternalUnmanagedException, new []{$"Unable to enter promiscuous mode: \n{ex}"});
-                Notifier.Raise(Signal.MinvanethComponentExit, new[] { "Network", "Sniffer" });
+                Notifier.Raise(Signal.InternalUnmanagedException,
+                    new[]
+                    {
+                        $"Unable to enter promiscuous mode: {ex.Message} / {ex.HResult} / {Marshal.GetLastWin32Error()}",
+                        "Network", "SocketSniffer", "EnterPromiscuousMode"
+                    });
+                Notifier.Raise(Signal.MilvanethComponentExit, new[] { "Network", "Sniffer" });
                 throw;
             }
         }
@@ -74,23 +83,31 @@ namespace Thaliak.Network.Sniffer
             FirewallRegister.RegisterToFirewall();
 
             // Pre-allocate pool of SocketAsyncEventArgs for receive operations
-            for (var i = 0; i < MAX_RECEIVE; i++)
+            for (var i = 0; i < MaxReceive; i++)
             {
                 var socketEventArgs = new SocketAsyncEventArgs();
                 socketEventArgs.Completed += (e, args) => Receive(socketEventArgs);
 
                 // Allocate space from the single, shared buffer
-                this.bufferManager.AssignSegment(socketEventArgs);
+                this._bufferManager.AssignSegment(socketEventArgs);
 
-                this.receivePool.Push(socketEventArgs);
+                this._receivePool.Push(socketEventArgs);
             }
 
             Task.Factory.StartNew(() =>
             {
                 // GetConsumingEnumerable() will wait when queue is empty, until CompleteAdding() is called
-                foreach (var timestampedData in this.outputQueue.GetConsumingEnumerable())
+                foreach (var timestampedData in this._outputQueue.GetConsumingEnumerable())
                 {
-                    Output(timestampedData);
+                    try
+                    {
+                        Output(timestampedData);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e);
+                        throw;
+                    }
                 }
             });
 
@@ -99,28 +116,28 @@ namespace Thaliak.Network.Sniffer
 
         public void Stop()
         {
-            this.isStopping = true;
+            this._isStopping = true;
         }
 
         private void EnqueueOutput(TimestampedData timestampedData)
         {
-            if (this.isStopping)
+            if (this._isStopping)
             {
-                this.outputQueue.CompleteAdding();
+                this._outputQueue.CompleteAdding();
                 return;
             }
 
-            this.outputQueue.Add(timestampedData);
+            this._outputQueue.Add(timestampedData);
         }
 
         private void Output(TimestampedData timestampedData)
         {
             // Only parse the packet header if we need to filter
-            if (this.filters.PropertyFilters.Any())
+            if (this._filters.PropertyFilters.Any())
             {
                 var packet = new IPPacket(timestampedData.Data);
 
-                if (!this.filters.IsMatch(packet))
+                if (!this._filters.IsMatch(packet))
                 {
                     return;
                 }
@@ -128,8 +145,8 @@ namespace Thaliak.Network.Sniffer
                 timestampedData.SetPacket(packet);
             }
 
-            this.output.Output(timestampedData);
-            Interlocked.Increment(ref this.packetsCaptured);
+            this._output.Output(timestampedData);
+            Interlocked.Increment(ref this._packetsCaptured);
         }
 
         private void StartReceiving()
@@ -137,20 +154,20 @@ namespace Thaliak.Network.Sniffer
             try
             {
                 // Get SocketAsyncEventArgs from pool
-                this.maxReceiveEnforcer.Wait();
+                this._maxReceiveEnforcer.Wait();
 
-                if (!this.receivePool.TryPop(out var socketEventArgs))
+                if (!this._receivePool.TryPop(out var socketEventArgs))
                 {
                     // Because we are controlling access to pooled SocketAsyncEventArgs, this
                     // *should* never happen...
                     Notifier.Raise(Signal.InternalException, new[] {"Connection pool exhausted"});
-                    Notifier.Raise(Signal.MinvanethComponentExit, new[] { "Network", "Sniffer" });
+                    Notifier.Raise(Signal.MilvanethComponentExit, new[] { "Network", "Sniffer" });
                     throw new Exception("Connection pool exhausted");
                 }
 
                 // Returns true if the operation will complete asynchronously, or false if it completed
                 // synchronously
-                var willRaiseEvent = this.socket.ReceiveAsync(socketEventArgs);
+                var willRaiseEvent = this._socket.ReceiveAsync(socketEventArgs);
 
                 if (!willRaiseEvent)
                 {
@@ -160,13 +177,13 @@ namespace Thaliak.Network.Sniffer
             catch (Exception ex)
             {
                 // Exceptions while shutting down are expected
-                if (!this.isStopping)
+                if (!this._isStopping)
                 {
                     Console.WriteLine(ex);
                 }
 
-                this.socket.Close();
-                this.socket = null;
+                this._socket.Close();
+                this._socket = null;
             }
         }
 
@@ -179,9 +196,10 @@ namespace Thaliak.Network.Sniffer
             {
                 if (e.SocketError != SocketError.Success)
                 {
-                    if (!this.isStopping)
+                    if (!this._isStopping)
                     {
-                        Notifier.Raise(Signal.InternalUnmanagedException, new[] {$"Socket error: \n{e.SocketError}"});
+                        Notifier.Raise(Signal.InternalUnmanagedException,
+                            new[] {$"Socket error: \n{(int) e.SocketError}", "Network", "SocketSniffer", "Receive"});
                     }
 
                     return;
@@ -192,7 +210,7 @@ namespace Thaliak.Network.Sniffer
                     return;
                 }
 
-                Interlocked.Increment(ref this.packetsObserved);
+                Interlocked.Increment(ref this._packetsObserved);
 
                 // Copy the bytes received into a new buffer
                 var buffer = new byte[e.BytesTransferred];
@@ -202,19 +220,25 @@ namespace Thaliak.Network.Sniffer
             }
             catch (SocketException ex)
             {
-                Notifier.Raise(Signal.InternalUnmanagedException, new []{$"Socket error: \n{ex}"});
+                Notifier.Raise(Signal.InternalUnmanagedException,
+                    new[]
+                    {
+                        $"Socket exception: {ex.Message} / {ex.HResult} / {Marshal.GetLastWin32Error()}", "Network",
+                        "SocketSniffer", "Receive"
+                    });
             }
             catch (Exception ex)
             {
-                Notifier.Raise(Signal.InternalException, new[] { $"Error: \n{ex}" });
+                Notifier.Raise(Signal.InternalException,
+                    new[] {$"Error: {ex.Message}", "Network", "SocketSniffer", "Receive"});
             }
             finally
             {
                 // Put the SocketAsyncEventArgs back into the pool
-                if (!this.isStopping && this.socket != null && this.socket.IsBound)
+                if (!this._isStopping && this._socket != null && this._socket.IsBound)
                 {
-                    this.receivePool.Push(e);
-                    this.maxReceiveEnforcer.Release();
+                    this._receivePool.Push(e);
+                    this._maxReceiveEnforcer.Release();
                 }
             }
         }

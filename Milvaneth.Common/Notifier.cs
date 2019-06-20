@@ -12,8 +12,8 @@ namespace Milvaneth.Common
         {
             try
             {
-                if(!noLog)
-                    LogOutput.Instance.LogNotification(sig, DateTime.Now, Environment.StackTrace, args);
+                // if(!noLog)
+                //     LogOutput.Instance.LogNotification(sig, DateTime.Now, Environment.StackTrace, args);
 
                 OnNotification(sig, DateTime.Now, Environment.StackTrace, args);
             }

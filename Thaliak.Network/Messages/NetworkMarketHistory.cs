@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using Milvaneth.Common;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Text;
+using Thaliak.Network.Utilities;
 
-namespace Thaliak.Network
+namespace Thaliak.Network.Messages
 {
     public class NetworkMarketHistory : NetworkMessage
     {
@@ -12,14 +13,14 @@ namespace Thaliak.Network
 
         public new static int GetMessageId()
         {
-            return 0x012A;
+            return MessageIdRetriver.Instance.GetMessageId(MessageIdRetriveKey.NetworkMarketHistory);
         }
 
         public new static unsafe NetworkMarketHistory Consume(byte[] data, int offset)
         {
             fixed (byte* raw = &data[offset])
             {
-                return (*(NetworkMarketHistoryRaw*) raw).Spawn();
+                return (*(NetworkMarketHistoryRaw*) raw).Spawn(data, offset);
             }
         }
     }
@@ -45,20 +46,18 @@ namespace Thaliak.Network
         [FieldOffset(4)]
         public int ItemId1;
 
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 52 * 20)]
-        [FieldOffset(8)]
-        public fixed byte HistoryItem[52 * 20];
-
-        public NetworkMarketHistory Spawn()
+        public NetworkMarketHistory Spawn(byte[] data, int offset)
         {
             const int itemSize = 52;
             const int itemCount = 20;
             var items = new List<NetworkMarketHistoryItem>(itemCount);
             for (var i = 0; i < itemCount; i++)
             {
-                fixed (byte* p = &HistoryItem[i * itemSize])
+                fixed (byte* p = &data[offset + 8 + i * itemSize])
                 {
-                    items.Add((*(NetworkMarketHistoryItemRaw*)p).Spawn());
+                    var item = (*(NetworkMarketHistoryItemRaw*) p).Spawn(data, offset + 8 + i * itemSize);
+                    if(item.ItemId != 0)
+                        items.Add(item);
                 }
             }
 
@@ -92,29 +91,22 @@ namespace Thaliak.Network
         [FieldOffset(14)]
         public byte OnMannequin;
 
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 33)]
-        [FieldOffset(15)]
-        public fixed byte BuyerName[33];
-
         [FieldOffset(48)]
         public int ItemId;
 
-        public NetworkMarketHistoryItem Spawn()
+        public NetworkMarketHistoryItem Spawn(byte[] data, int offset)
         {
-            fixed (byte* p = this.BuyerName)
+            return new NetworkMarketHistoryItem
             {
-                return new NetworkMarketHistoryItem
-                {
-                    UnitPrice = this.UnitPrice,
-                    PurchaseTime = this.PurchaseTime,
-                    Quantity = this.Quantity,
-                    IsHq = this.IsHq,
-                    Padding = this.Padding,
-                    OnMannequin = this.OnMannequin,
-                    BuyerName = new string((sbyte*)p, 0, 33, Encoding.UTF8).Split('\0')[0],
-                    ItemId = this.ItemId,
-                };
-            }
+                UnitPrice = this.UnitPrice,
+                PurchaseTime = this.PurchaseTime,
+                Quantity = this.Quantity,
+                IsHq = this.IsHq,
+                Padding = this.Padding,
+                OnMannequin = this.OnMannequin,
+                BuyerName = Helper.ToUtf8String(data, offset, 15, 33),
+                ItemId = this.ItemId,
+            };
         }
     }
 }

@@ -3,6 +3,6 @@
     public interface INetworkMessageBase { }
     public interface INetworkMessageBase<T> : INetworkMessageBase
     {
-        T Spawn();
+        T Spawn(byte[] data, int offset);
     }
 }

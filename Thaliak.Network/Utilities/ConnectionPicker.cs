@@ -43,11 +43,11 @@ namespace Thaliak.Network.Utilities
 
                             if (parts.Length != 2) continue;
 
-                            if (parts[0] == "DEV.LobbyHost01")
+                            if (parts[0].Contains("LobbyHost01"))
                             {
                                 lobbyHost = parts[1];
                             }
-                            else if (parts[0] == "DEV.LobbyPort01")
+                            else if (parts[0].Contains("LobbyPort01"))
                             {
                                 lobbyPort = int.Parse(parts[1]);
                             }
@@ -59,7 +59,7 @@ namespace Thaliak.Network.Utilities
             }
             catch (Exception e)
             {
-                Notifier.Raise(Signal.InternalException, new []{$"GetLobbyEndPoint Failed in Connection Picker: \n{e}"});
+                Notifier.Raise(Signal.InternalException, new []{$"GetLobbyEndPoint Failed in Connection Picker: \n{e.Message}", "Network", "ConnectionPicker", "GetLobbyEndPoint" });
                 return null;
             }
 
@@ -107,16 +107,16 @@ namespace Thaliak.Network.Utilities
                 else
                 {
                     Notifier.Raise(Signal.InternalUnmanagedException,
-                        new []{$"GetExtendedTcpTable Failed in Connection Picker: {Marshal.GetLastWin32Error()}"});
+                        new []{$"GetExtendedTcpTable Failed in Connection Picker: {Marshal.GetLastWin32Error()}", "Network", "ConnectionPicker", "GetConnections" });
                     if(connections.Count == 0)
-                        Notifier.Raise(Signal.MinvanethComponentExit, new[] { "Network", "ConnectionPicker" });
+                        Notifier.Raise(Signal.MilvanethComponentExit, new[] { "Network", "ConnectionPicker" });
                 }
             }
             catch (Exception ex)
             {
-                Notifier.Raise(Signal.InternalException, new []{$"{ex}"});
+                Notifier.Raise(Signal.InternalException, new []{ex.Message, "Network", "ConnectionPicker", "GetConnections" });
                 if (connections.Count == 0)
-                    Notifier.Raise(Signal.MinvanethComponentExit, new[] { "Network", "ConnectionPicker" });
+                    Notifier.Raise(Signal.MilvanethComponentExit, new[] { "Network", "ConnectionPicker" });
             }
             finally
             {

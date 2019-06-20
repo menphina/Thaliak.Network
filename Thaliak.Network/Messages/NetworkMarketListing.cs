@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using Milvaneth.Common;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Text;
+using Thaliak.Network.Utilities;
 
-namespace Thaliak.Network
+namespace Thaliak.Network.Messages
 {
     public class NetworkMarketListing : NetworkMessage
     {
@@ -14,14 +15,14 @@ namespace Thaliak.Network
 
         public new static int GetMessageId()
         {
-            return 0x0126;
+            return MessageIdRetriver.Instance.GetMessageId(MessageIdRetriveKey.NetworkMarketListing);
         }
 
         public new static unsafe NetworkMarketListing Consume(byte[] data, int offset)
         {
             fixed (byte* raw = &data[offset])
             {
-                return (*(NetworkMarketListingRaw*) raw).Spawn();
+                return (*(NetworkMarketListingRaw*) raw).Spawn(data, offset);
             }
         }
     }
@@ -37,34 +38,31 @@ namespace Thaliak.Network
         public int Quantity;
         public int ItemId;
         public int UpdateTime;
-        public short Unknown1;
-        public short OrderInList;
-        public short Quality;
-        public short Unknown2;
+        public short ConatinerId;
+        public short SlotId;
+        public short Condition;
+        public short SpiritBond;
         public short Materia1;
         public short Materia2;
         public short Materia3;
         public short Materia4;
         public short Materia5;
-        public short Unknown3;
-        public int Unknown4;
+        public short Unknown1;
+        public int Unknown2;
         public string RetainerName;
         public string PlayerName;
         public byte IsHq;
         public byte MateriaCount;
         public byte OnMannequin;
         public byte RetainerLocation;
-        public int Unknown5;
-        public int Unknown6;
+        public short DyeId;
+        public short Unknown3;
+        public int Unknown4;
     }
 
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct NetworkMarketListingRaw : INetworkMessageBase<NetworkMarketListing>
     {
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 152 * 10)]
-        [FieldOffset(0)]
-        public fixed byte ListingItem[152 * 10];
-
         [FieldOffset(1520)]
         public byte ListingIndexEnd;
 
@@ -77,16 +75,18 @@ namespace Thaliak.Network
         [FieldOffset(1524)]
         public short Padding;
 
-        public NetworkMarketListing Spawn()
+        public NetworkMarketListing Spawn(byte[] data, int offset)
         {
             const int itemSize = 152;
             const int itemCount = 10;
             var items = new List<NetworkMarketListingItem>(itemCount);
             for (var i = 0; i < itemCount; i++)
             {
-                fixed (byte* p = &ListingItem[i * itemSize])
+                fixed (byte* p = &data[offset + 0 + i * itemSize])
                 {
-                    items.Add((*(NetworkMarketListingItemRaw*)p).Spawn());
+                    var item = (*(NetworkMarketListingItemRaw*) p).Spawn(data, offset + 0 + i * itemSize);
+                    if(item.ItemId != 0)
+                        items.Add(item);
                 }
             }
 
@@ -132,16 +132,16 @@ namespace Thaliak.Network
         public int UpdateTime;
 
         [FieldOffset(52)]
-        public short Unknown1;
+        public short ConatinerId;
 
         [FieldOffset(54)]
-        public short OrderInList;
+        public short SlotId;
 
         [FieldOffset(56)]
-        public short Quality;
+        public short Condition;
 
         [FieldOffset(58)]
-        public short Unknown2;
+        public short SpiritBond;
 
         [FieldOffset(60)]
         public short Materia1;
@@ -159,18 +159,10 @@ namespace Thaliak.Network
         public short Materia5;
 
         [FieldOffset(70)]
-        public short Unknown3;
+        public short Unknown1;
 
         [FieldOffset(72)]
-        public int Unknown4;
-
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-        [FieldOffset(76)]
-        public fixed byte RetainerName[32];
-
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-        [FieldOffset(108)]
-        public fixed byte PlayerName[32];
+        public int Unknown2;
 
         [FieldOffset(140)]
         public byte IsHq;
@@ -185,15 +177,17 @@ namespace Thaliak.Network
         public byte RetainerLocation;
 
         [FieldOffset(144)]
-        public int Unknown5;
+        public short DyeId;
+
+        [FieldOffset(146)]
+        public short Unknown3;
 
         [FieldOffset(148)]
-        public int Unknown6;
+        public int Unknown4;
 
-        public NetworkMarketListingItem Spawn()
+        public NetworkMarketListingItem Spawn(byte[] data, int offset)
         {
-            fixed (byte* p = this.RetainerName)
-            fixed (byte* q = this.PlayerName)
+            fixed (byte* p = &data[offset])
             {
                 return new NetworkMarketListingItem
                 {
@@ -206,25 +200,26 @@ namespace Thaliak.Network
                     Quantity = this.Quantity,
                     ItemId = this.ItemId,
                     UpdateTime = this.UpdateTime,
-                    Unknown1 = this.Unknown1,
-                    OrderInList = this.OrderInList,
-                    Quality = this.Quality,
-                    Unknown2 = this.Unknown2,
+                    ConatinerId = this.ConatinerId,
+                    SlotId = this.SlotId,
+                    Condition = this.Condition,
+                    SpiritBond = this.SpiritBond,
                     Materia1 = this.Materia1,
                     Materia2 = this.Materia2,
                     Materia3 = this.Materia3,
                     Materia4 = this.Materia4,
                     Materia5 = this.Materia5,
-                    Unknown3 = this.Unknown3,
-                    Unknown4 = this.Unknown4,
-                    RetainerName = new string((sbyte*)p, 0, 32, Encoding.UTF8).Split('\0')[0],
-                    PlayerName = new string((sbyte*)q, 0, 32, Encoding.UTF8).Split('\0')[0],
+                    Unknown1 = this.Unknown1,
+                    Unknown2 = this.Unknown2,
+                    RetainerName = Helper.ToUtf8String(data, offset, 76, 32),
+                    PlayerName = Helper.ToUtf8String(data, offset, 108, 32),
                     IsHq = this.IsHq,
                     MateriaCount = this.MateriaCount,
                     OnMannequin = this.OnMannequin,
                     RetainerLocation = this.RetainerLocation,
-                    Unknown5 = this.Unknown5,
-                    Unknown6 = this.Unknown6,
+                    DyeId = this.DyeId,
+                    Unknown3 = this.Unknown3,
+                    Unknown4 = this.Unknown4,
                 };
             }
         }

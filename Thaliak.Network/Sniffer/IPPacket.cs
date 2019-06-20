@@ -30,7 +30,7 @@ namespace Thaliak.Network.Sniffer
 
             if (this.Version == 6)
             {
-                // TODO: Experimental
+                // TODO: experimental
                 var realHeader = FindRealHeader(data, out var len, out var dic);
 
                 this.HeaderLength = len;
@@ -39,6 +39,7 @@ namespace Thaliak.Network.Sniffer
                 this.SourceAddress = new IPAddress(data.Skip(8).Take(16).ToArray());
                 this.DestAddress = new IPAddress(data.Skip(24).Take(16).ToArray());
 
+                // headers should be handled by upper level as they may contain infos user want
                 this.IPv6ExtHeaders = dic;
             }
             else if (this.Version == 4)
@@ -77,7 +78,7 @@ namespace Thaliak.Network.Sniffer
         {
             // From https://en.wikipedia.org/wiki/IPv6_packet
             // IPSec Encapsulating Security Payload (No. 50) and Reserved (No. 253, 254) are not handled
-            // As they are de facto data but not skippable headers. (Protected or has no mean to parse)
+            // As they are de facto data but not parseable headers. (Protected or has no mean to parse)
 
             headerData = new Dictionary<byte, byte[]>();
 
@@ -89,20 +90,20 @@ namespace Thaliak.Network.Sniffer
                 int headerLength;
                 switch (nextHeader)
                 {
-                    case 0:
-                    case 60:
-                    case 43:
-                    case 135:
-                    case 139:
-                    case 140:
+                    case 0: // Hop-by-Hop Options
+                    case 60: // Destination Options
+                    case 43: // Routing
+                    case 135: // Mobility
+                    case 139: // Host Identity Protocol
+                    case 140: // Shim6 Protocol
                         headerLength = 8 + 8 * data[offset + 1];
                         break;
-                    case 51:
+                    case 51: // Authentication Header
                         headerLength = 8 + 4 * data[offset + 1];
-                        if (headerLength % 8 == 4) headerLength += 4; // IPv6 is 8-octet aligned
+                        if (headerLength % 8 != 0) headerLength += 4; // IPv6 is 8-octet aligned
                         break;
-                    case 44:
-                        headerLength = 8;
+                    case 44: // Fragment
+                        headerLength = 8; // fixed length
                         break;
                     default:
                         return nextHeader;

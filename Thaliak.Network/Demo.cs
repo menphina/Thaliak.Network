@@ -4,76 +4,71 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Thaliak.Network.Analyzer;
-using Thaliak.Network.Dispatcher;
-using Thaliak.Network.Sniffer;
+using Thaliak.Network.Messages;
 using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network
 {
-    // Demo class is to show how to use Thaliak.Network
+    // Demo class to show how to use Thaliak.Network
     // Call Demo.Run in a Console application to run the demo
     public class Demo
     {
         private static bool isStopping;
-        private static List<string> visited = new List<string>();
+        private static List<string> logLines = new List<string>();
 
         public static void Run()
         {
+#pragma warning disable CS0618
+            MessageIdRetriver.SetMessageId();
+#pragma warning restore CS0618
+
             var p = Helper.GetProcess();
-            var nic = NetworkInterfaceInfo.GetDefaultInterface();
-            var filters = FilterBuilder.BuildDefaultFilter(p);
+            var gnm = new GameNetworkMonitor(p);
 
-            var dispatcher = new MessageDispatcher(new[]
-            {
-                typeof(NetworkMarketHistory),
-                typeof(NetworkCharacterName),
-                typeof(NetworkMarketListing),
-                typeof(NetworkMarketListingCount),
-                typeof(NetworkMarketResult),
-                typeof(NetworkPlayerSpawn)
-            });
-            var analyzer = new PacketAnalyzer(filters, dispatcher);
-            var sniffer = new SocketSniffer(nic, filters, analyzer);
+            gnm.Subcribe(NetworkMarketListing.GetMessageId(), WhoAmIVisited);
+            gnm.Subcribe(NetworkLogout.GetMessageId(), Logout); // recv -> waitfor25s -> no cancel -> logout
+            gnm.Subcribe(NetworkRetainerSummary.GetMessageId(), LogoutC);
 
-            dispatcher.Subcribe(NetworkMarketListing.GetMessageId(), WhoAmIVisited);
-
-            analyzer.Start();
-            sniffer.Start();
-            
+            gnm.Start();
 
             Console.CancelKeyPress += ConsoleOnCancelKeyPress;
 
-            PrintHeader(nic, p);
+            PrintHeader(gnm.NetworkInterface, p);
 
             while (!isStopping)
             {
-                PrintStatus(sniffer, analyzer);
+                PrintStatus(gnm);
 
                 Thread.Sleep(50);
             }
 
-            sniffer.Stop();
-            analyzer.Stop();
+            gnm.Stop();
         }
 
-        private static void PrintStatus(SocketSniffer sniffer, PacketAnalyzer analyzer)
+        private static void PrintStatus(GameNetworkMonitor gnm)
         {
-            BringConsoleToFront();
-            Console.WriteLine("IP Packets Observed: {0}", sniffer.PacketsObserved);
-            Console.WriteLine("IP Packets Captured: {0}", sniffer.PacketsCaptured);
-            Console.WriteLine("Game Packets Observed: {0}", analyzer.PacketObserved);
-            Console.WriteLine("Game Messages Processed: {0}", analyzer.MessageProcessed);
+            Console.WriteLine("Packets Observed: {0}", gnm.PacketsObserved);
+            Console.WriteLine("Packets Captured: {0}", gnm.PacketsCaptured);
+            Console.WriteLine("Packets Analyzed: {0}", gnm.PacketsAnalyzed);
+            Console.WriteLine("Messages Processed: {0}", gnm.MessagesProcessed);
+            Console.WriteLine("Messages Dispatched: {0}", gnm.MessagesDispatched);
             Console.WriteLine("---");
-            for (var i = 0; i < 15; i++)
+
+            if (logLines.Count > 10)
             {
-                Console.WriteLine(i < visited.Count ? visited[i] : "");
+                logLines.RemoveRange(0, logLines.Count - 10);
             }
-            Console.SetCursorPosition(0, Console.CursorTop - 20);
+
+            for (var i = 0; i < 10; i++)
+            {
+                Console.WriteLine(i < logLines.Count ? logLines[i] : "".PadRight(40));
+            }
+            Console.SetCursorPosition(0, Console.CursorTop - 16);
         }
 
         private static void PrintHeader(NetworkInterfaceInfo nic, Process p)
         {
+            BringConsoleToFront();
             Console.WriteLine("");
             Console.WriteLine("Thaliak.Network - Milvaneth Network Sniffing Framework");
             Console.WriteLine("Capturing on interface {0} ({1})", nic.Name, nic.IPAddress);
@@ -84,11 +79,20 @@ namespace Thaliak.Network
 
         private static void WhoAmIVisited(NetworkMessageHeader header, NetworkMessage msg)
         {
-            visited.Clear();
             foreach (var item in ((NetworkMarketListing)msg).ListingItems)
             {
-                visited.Add(item.ItemId != 0 ? $"{item.RetainerName} WTS {item.UnitPrice * item.Quantity + item.TotalTax} (VAT incl.)".PadRight(30) : "".PadRight(30));
+                logLines.Add($"{item.RetainerName} WTS for {item.UnitPrice * item.Quantity + item.TotalTax}Gil (VAT incl.)".PadRight(40));
             }
+        }
+
+        private static void Logout(NetworkMessageHeader header, NetworkMessage msg)
+        {
+            logLines.Add($"Logout".PadRight(40));
+        }
+
+        private static void LogoutC(NetworkMessageHeader header, NetworkMessage msg)
+        {
+            logLines.Add($"Retainer {((NetworkRetainerSummary)msg).RetainerName}");
         }
 
         private static void ConsoleOnCancelKeyPress(object sender, ConsoleCancelEventArgs e)
@@ -99,7 +103,7 @@ namespace Thaliak.Network
 
         private static void BringConsoleToFront()
         {
-            SetWindowPos(GetConsoleWindow(), new IntPtr(-1), 0,0,0,0,3);
+            SetWindowPos(GetConsoleWindow(), new IntPtr(-1), 0,0,0,0,19);
         }
 
         [DllImport("kernel32.dll", ExactSpelling = true)]
