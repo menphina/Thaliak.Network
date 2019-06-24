@@ -150,7 +150,8 @@ namespace Thaliak.Network.Analyzer
                     needPurge = false;
 
                     var bytes = _buffer.ToArray();
-                    var pos = FindMagic(new ArraySegment<byte>(bytes, 1, bytes.Length - 1));
+                    var newStart = processedLength + 1;
+                    var pos = FindMagic(new ArraySegment<byte>(bytes, newStart, bytes.Length - newStart));
 
                     if (pos == -1)
                     {
