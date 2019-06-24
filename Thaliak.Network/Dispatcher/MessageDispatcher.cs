@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,9 +14,9 @@ namespace Thaliak.Network.Dispatcher
 
         private bool _isStopping;
         private long _messagesDispatched;
-        
+
         private readonly BlockingCollection<RoutedMessage> _outputQueue;
-        private readonly Dictionary<int, Type> _consumerTypes;
+        private readonly Dictionary<int, MessageConsumerDelegate> _consumerTypes;
         private readonly Dictionary<int, MessageDecoded> _listeners;
 
         public long MessagesDispatched => _messagesDispatched;
@@ -25,7 +25,7 @@ namespace Thaliak.Network.Dispatcher
         public MessageDispatcher(IEnumerable<Type> consumers)
         {
             this._outputQueue = new BlockingCollection<RoutedMessage>();
-            _consumerTypes = new Dictionary<int, Type>();
+            _consumerTypes = new Dictionary<int, MessageConsumerDelegate>();
             _listeners = new Dictionary<int, MessageDecoded>();
 
             foreach (var consumer in consumers)
@@ -36,7 +36,9 @@ namespace Thaliak.Network.Dispatcher
                 var method = consumer.GetMethod(nameof(NetworkMessage.GetMessageId));
 
                 var opCode = (int)method.Invoke(null, new object[] { });
-                _consumerTypes.Add(opCode, consumer);
+                var consume = (MessageConsumerDelegate) Delegate.CreateDelegate(typeof(MessageConsumerDelegate),
+                    consumer.GetMethod(nameof(NetworkMessage.Consume)), true);
+                _consumerTypes.Add(opCode, consume);
             }
         }
 
@@ -70,8 +72,7 @@ namespace Thaliak.Network.Dispatcher
                 {
                     try
                     {
-                        var output = (NetworkMessage) data.Consumer.GetMethod(nameof(NetworkMessage.Consume))
-                            .Invoke(null, new object[] {data.Message, data.HeaderLength});
+                        var output = data.Consumer(data.Message, data.HeaderLength);
 
                         data.Listener(data.Header, output);
                         Interlocked.Increment(ref this._messagesDispatched);
