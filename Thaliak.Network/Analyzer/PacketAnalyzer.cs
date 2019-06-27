@@ -159,7 +159,7 @@ namespace Thaliak.Network.Analyzer
                         return;
                     }
 
-                    processedLength += pos;
+                    processedLength += pos + 1;
                 }
             }
         }
