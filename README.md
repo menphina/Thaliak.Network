@@ -20,13 +20,17 @@ This repository is a partial mirror of a internal repository, so it not reflecti
 
 5. Stop them when needed.
 
-For actual workable code, see [Demo.cs](https://github.com/menphnia/Thaliak.Network/blob/master/Thaliak.Network/Demo.cs).
+For actual workable code, see [Demo.cs](https://github.com/menphina/Thaliak.Network/blob/master/Thaliak.Network/Demo.cs).
+
+> I want raw messages data! Why you dropped them!
+
+Hmmmm. You could just ignore the built in `MessageDispatcher` and write your own version. As data inputed into `MessageDispatcher` is raw byte array.
 
 > How to add a processor
 
 Inherit `NetworkMessage` Class, override (`new`) two functions and add it to the Type list. That's all.
 
-You can view source code of existing processors in [/Thaliak.Network/PublicDefs](https://github.com/menphnia/Thaliak.Network/tree/master/Thaliak.Network/PublicDefs)
+You can view source code of existing processors in [/Thaliak.Network/Messages](https://github.com/menphina/Thaliak.Network/tree/master/Thaliak.Network/Messages)
 
 > This solution looks ... incomplete
 
@@ -34,7 +38,7 @@ True. This is part of a larger project. So there will be some code (such as Milv
 
 > Almost half of packets captured have not been processed!
 
-We have already recognized this. It's because the packets entering the processing flow do not contain TCP ACK packets (as they don't contain useful data), which are about half of the total number of packets game client/server send.
+We recognized this. It's because the packets entering the processing flow do not contain TCP ACK packets (as they don't contain useful data), which are about half of the total number of packets game client/server send.
 
 > Will there be Pcap support?
 
@@ -43,4 +47,3 @@ Maybe. Whether to implement Pcap packet capture depends on the overall developme
 > OpCodes will one day out-dated.
 
 Sure. So I decided to use `GetMessageId` instead of employing enums or consts. Note that those literals currently in these methods are for testing purpose ONLY. In fact, you can get them from config files, from some websites, from databases. Whatever, it's a method.
-
