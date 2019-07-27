@@ -22,6 +22,10 @@ This repository is a partial mirror of a internal repository, so it not reflecti
 
 For actual workable code, see [Demo.cs](https://github.com/menphina/Thaliak.Network/blob/master/Thaliak.Network/Demo.cs).
 
+> Do you support lobby connection
+
+Yes. Thaliak.Network features with fully automated lobby decryption.
+
 > I want raw messages data! Why you dropped them!
 
 Hmmmm. You could just ignore the built in `MessageDispatcher` and write your own version. As data inputed into `MessageDispatcher` is raw byte array.
