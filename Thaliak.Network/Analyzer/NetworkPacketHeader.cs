@@ -18,5 +18,7 @@ namespace Thaliak.Network
         public ushort Flags;
 
         public bool IsCompressed => (Flags & 0xFF00) == 0x0100;
+
+        public bool Malformed => (Flags & 0xFEFE) != 0;
     }
 }

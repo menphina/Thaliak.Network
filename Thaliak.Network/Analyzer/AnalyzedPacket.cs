@@ -1,5 +1,4 @@
-﻿using Milvaneth.Common;
-using System.Collections.Generic;
+﻿using Thaliak.Network.Filter;
 
 namespace Thaliak.Network.Analyzer
 {
@@ -7,10 +6,10 @@ namespace Thaliak.Network.Analyzer
     {
         public int Length { get; }
         public long Timestamp { get; }
-        public List<MessageAttribute> RouteMark { get; }
+        public MessageAttribute RouteMark { get; }
         public byte[] Message { get; }
 
-        public AnalyzedPacket(int len, byte[] msg, long time, List<MessageAttribute> mark)
+        public AnalyzedPacket(int len, byte[] msg, long time, MessageAttribute mark)
         {
             Length = len;
             Message = msg;

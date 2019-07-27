@@ -1,8 +1,8 @@
-﻿// Modifications copyright (C) 2019 Menphnia
+﻿// Modifications copyright (C) 2019 Menphina
 
 using System.Security.Principal;
 
-namespace Thaliak.Network.Sniffer
+namespace Thaliak.Network.Utilities
 {
     public static class SystemInformation
     {

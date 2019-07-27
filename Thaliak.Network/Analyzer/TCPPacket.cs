@@ -44,7 +44,6 @@ namespace Thaliak.Network.Analyzer
                 Payload = null;
 
                 IsValid = false;
-                Notifier.Raise(Signal.ClientPacketParseFail, new[] {"unable to tcplize"});
             }
         }
     }

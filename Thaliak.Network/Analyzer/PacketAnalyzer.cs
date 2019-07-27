@@ -2,17 +2,20 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Thaliak.Network.Filter;
 using Thaliak.Network.Sniffer;
+using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Analyzer
 {
-    public sealed class PacketAnalyzer : ISnifferOutput
+    public sealed class PacketAnalyzer : ISnifferOutput, IDisposable
     {
         private const TCPFlags FlagAckPsh = TCPFlags.ACK | TCPFlags.PSH;
         private const TCPFlags FlagFinRst = TCPFlags.FIN | TCPFlags.RST;
@@ -22,20 +25,19 @@ namespace Thaliak.Network.Analyzer
         private bool _isStopping;
         private long _packetsAnalyzed;
         private long _messagesProcessed;
+        private int processedLength;
 
-        private readonly Filters<IPPacket> _markers;
         private readonly MemoryStream _buffer;
         private readonly IAnalyzerOutput _output;
+        private Blowfish _decrypter;
 
         public long PacketsAnalyzed => _packetsAnalyzed;
         public long MessagesProcessed => _messagesProcessed;
-        public long MessagesInQueue => this._outputQueue.Count;
 
-        public PacketAnalyzer(Filters<IPPacket> markers, IAnalyzerOutput output)
+        public PacketAnalyzer(IAnalyzerOutput output)
         {
             this._outputQueue = new BlockingCollection<AnalyzedPacket>();
 
-            this._markers = markers;
             this._output = output;
 
             this._isStopping = false;
@@ -44,7 +46,9 @@ namespace Thaliak.Network.Analyzer
 
         public void Start()
         {
-            Task.Factory.StartNew(() =>
+            this._isStopping = false;
+
+            Task.Run(() =>
             {
                 foreach (var analyzedPacket in this._outputQueue.GetConsumingEnumerable())
                 {
@@ -59,34 +63,30 @@ namespace Thaliak.Network.Analyzer
             this._isStopping = true;
         }
 
+        public void Dispose()
+        {
+            _buffer?.Dispose();
+        }
+
         public unsafe void Output(TimestampedData timestampedData)
         {
-            var ipPacket = timestampedData.Packet;
+            if (timestampedData.Protocol != 6) return; // TCP
 
-            if (ipPacket?.Protocol != 6) return; // TCP
+            var mark = timestampedData.RouteMark;
+            var tcpPacket = new TCPPacket(timestampedData.Data, timestampedData.HeaderLength);
 
-            var tcpPacket = new TCPPacket(timestampedData.Data, ipPacket.HeaderLength);
-
-            if (!tcpPacket.IsValid || (tcpPacket.Flags & FlagAckPsh) != FlagAckPsh)
+            if (!tcpPacket.IsValid || (tcpPacket.Flags & TCPFlags.ACK) != TCPFlags.ACK)
             {
-                if ((tcpPacket.Flags & FlagFinRst) != 0)
-                {
-                    Notifier.Raise(Signal.ClientDisconnected, null);
-                }
-
                 return;
             }
 
-            if(tcpPacket.Payload == null) return;
+            if (tcpPacket.Payload == null || tcpPacket.Payload.Length == 0) return;
 
             Interlocked.Increment(ref this._packetsAnalyzed);
-
-            var mark = _markers.WhichMatch(ipPacket);
 
             _buffer.Seek(0, SeekOrigin.End); // pos = end
             _buffer.Write(tcpPacket.Payload, 0, tcpPacket.Payload.Length); // pos = end
 
-            var processedLength = 0;
             var needPurge = false;
             var currentHeader = new byte[HeaderLength];
 
@@ -99,10 +99,13 @@ namespace Thaliak.Network.Analyzer
                     if (_buffer.Length - processedLength <= HeaderLength || processedLength > 65536) // not enough data
                     {
                         var remaining = _buffer.Length - processedLength;
+                        if(remaining < 0) throw new AggregateException("Invalid processedLength");
+
                         var tmp = new byte[remaining];
                         _buffer.Read(tmp, 0, tmp.Length);
                         _buffer.SetLength(0);
                         _buffer.Write(tmp, 0, tmp.Length);
+                        processedLength = 0;
                         return;
                     }
 
@@ -121,6 +124,12 @@ namespace Thaliak.Network.Analyzer
                         header = *(NetworkPacketHeader*) p;
                     }
 
+                    if (header.Malformed)
+                    {
+                        needPurge = true;
+                        continue;
+                    }
+
                     var timeDelta = Math.Abs(Helper.DateTimeToUnixTimeStamp(DateTime.Now) * 1000 - header.Timestamp);
 
                     if (header.Length < HeaderLength || (header.Timestamp != 0 && timeDelta > 60000)) // > 1 min
@@ -129,7 +138,8 @@ namespace Thaliak.Network.Analyzer
                         continue;
                     }
 
-                    if (header.Length > _buffer.Length - processedLength) return; // wait for more content
+                    if (header.Length > _buffer.Length - processedLength)
+                        return; // wait for more content
 
                     var content = GenerateContent(_buffer, header.IsCompressed, header.Length);
 
@@ -150,15 +160,17 @@ namespace Thaliak.Network.Analyzer
                     needPurge = false;
 
                     var bytes = _buffer.ToArray();
-                    var pos = FindMagic(new ArraySegment<byte>(bytes, 1, bytes.Length - 1));
+                    var newStart = processedLength + 1;
+                    var pos = FindMagic(new ArraySegment<byte>(bytes, newStart, bytes.Length - newStart));
 
                     if (pos == -1)
                     {
                         _buffer.SetLength(0); // no available data, drop all content
+                        processedLength = 0;
                         return;
                     }
 
-                    processedLength += pos;
+                    processedLength += pos + 1;
                 }
             }
         }
@@ -187,7 +199,6 @@ namespace Thaliak.Network.Analyzer
                 }
                 catch
                 {
-                    Notifier.Raise(Signal.ClientPacketParseFail, new[] {"unable to deflate"});
                 }
             }
             else
@@ -200,7 +211,7 @@ namespace Thaliak.Network.Analyzer
             return content;
         }
 
-        private void ConsumeContent(Stream content, NetworkPacketHeader header, List<MessageAttribute> mark)
+        private void ConsumeContent(MemoryStream content, NetworkPacketHeader header, MessageAttribute mark)
         {
             var actualLen = 0;
             content.Seek(0, SeekOrigin.Begin);
@@ -212,11 +223,18 @@ namespace Thaliak.Network.Analyzer
                 var len = BitConverter.ToInt32(lenBytes, 0);
 
                 actualLen += len;
-                if (actualLen > content.Length) break;
+                if (actualLen > content.Length || len < 4) break;
 
                 // length field is zero here. we will not set it, just use msg.Length
                 var msg = new byte[len];
                 content.Read(msg, 4, len - 4);
+
+                if (mark.GetCatalog() == MessageAttribute.CatalogLobby)
+                {
+                    var tmp = HandleLobbyPacket(content.ToArray());
+                    if (tmp == null) return;
+                    msg = tmp;
+                }
 
                 Buffer.BlockCopy(lenBytes, 0, msg, 0, 4);
 
@@ -244,7 +262,7 @@ namespace Thaliak.Network.Analyzer
             unchecked
             {
                 headerRR = (uint) Searcher.Search(target, new byte[] {0x52, 0x52, 0xa0, 0x41});
-                header00 = (uint) Searcher.Search(target,
+                header00 = (uint)Searcher.Search(target,
                     new byte[]
                     {
                         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
@@ -263,6 +281,53 @@ namespace Thaliak.Network.Analyzer
             if (magic == 0x00000000u && magicBytes.Any(x => x != 0)) return false;
 
             return true;
+        }
+
+        private byte[] HandleLobbyPacket(byte[] lobbyPayload)
+        {
+            if (lobbyPayload.Length <= 24) return null; // ping, not interested
+
+            if (lobbyPayload[12] == 0x09)
+            {
+                var key = CalculateEncryption(
+                    lobbyPayload.Skip(52).Take(32).ToArray(),
+                    lobbyPayload.Skip(116).Take(4).ToArray());
+                _decrypter = new Blowfish(key);
+                return lobbyPayload; // plain text
+            }
+
+            if (_decrypter == null)
+            {
+                // unable to decrypt
+                // but since salt is hard-coded in game binary and time range is relatively small
+                // we can brute force the password in a few seconds if we really need its data
+                lobbyPayload[0x0E] = 0xDE; // DEcrypt
+                lobbyPayload[0x0F] = 0xFA; // FAiled
+                return lobbyPayload;
+            }
+
+            var dat = _decrypter.DecryptECB(lobbyPayload);
+            Buffer.BlockCopy(lobbyPayload, 0, dat, 0, 16); // restore header
+            return dat;
+        }
+
+        private static byte[] CalculateEncryption(byte[] salt, byte[] time)
+        {
+            var encKey = new byte[4 + 4 + 4 + 32];
+            var version = BitConverter.GetBytes(MessageIdRetriver.Instance.GetVersion());
+
+            encKey[0] = 0x78;
+            encKey[1] = 0x56;
+            encKey[2] = 0x34;
+            encKey[3] = 0x12;
+            Buffer.BlockCopy(time, 0, encKey, 4, 4);
+            Buffer.BlockCopy(version, 0, encKey, 8, 4);
+            Buffer.BlockCopy(salt, 0, encKey, 12, 32);
+
+            using (var md5Hash = MD5.Create())
+            {
+                return md5Hash.ComputeHash(encKey);
+            }
         }
     }
 }

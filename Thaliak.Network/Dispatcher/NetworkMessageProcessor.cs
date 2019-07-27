@@ -1,13 +1,13 @@
 ﻿namespace Thaliak.Network
 {
-    public abstract class NetworkMessage
+    public abstract class NetworkMessageProcessor
     {
         public static int GetMessageId()
         {
             return -1;
         }
 
-        public static unsafe NetworkMessage Consume(byte[] data, int offset)
+        public static unsafe NetworkMessageProcessor Consume(byte[] data, int offset)
         {
             return default;
         }

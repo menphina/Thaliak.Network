@@ -1,8 +1,9 @@
-﻿using Thaliak.Network.Utilities;
+﻿using Milvaneth.Common;
+using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Messages
 {
-    public class NetworkLogout : NetworkMessage
+    public class NetworkLogout : NetworkMessageProcessor, IResult
     {
         public new static int GetMessageId()
         {

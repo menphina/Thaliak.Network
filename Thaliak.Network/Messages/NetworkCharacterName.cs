@@ -4,7 +4,7 @@ using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Messages
 {
-    public class NetworkCharacterName : NetworkMessage
+    public class NetworkCharacterName : NetworkMessageProcessor, IResult
     {
         public long CharacterId;
         public string Name;

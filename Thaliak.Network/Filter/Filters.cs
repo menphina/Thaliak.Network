@@ -24,7 +24,27 @@ namespace Thaliak.Network.Filter
 
         public List<MessageAttribute> WhichMatch(T obj)
         {
-            return this.PropertyFilters.Where(x => x.IsMatch(obj)).Select(x => x.Label).ToList();
+            var tmp = new List<MessageAttribute>(this.PropertyFilters.Count);
+
+            if (this.FilterOperator == FilterOperator.AND)
+            {
+                if (!this.PropertyFilters.All(x => x.IsMatch(obj))) return tmp;
+                tmp.AddRange(this.PropertyFilters.Select(x => x.Label));
+            }
+            else
+            {
+                var item = this.PropertyFilters.FirstOrDefault(x => x.IsMatch(obj));
+
+                if(item != null)
+                    tmp.Add(item.Label);
+            }
+
+            return tmp;
+        }
+
+        public MessageAttribute FirstMatch(T obj)
+        {
+            return this.PropertyFilters.FirstOrDefault(x => x.IsMatch(obj))?.Label ?? MessageAttribute.NoMatch;
         }
     }
 }

@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Milvaneth.Common")]
+[assembly: AssemblyTitle("Thaliak.Network.Demo")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("Milvaneth.Common")]
+[assembly: AssemblyProduct("Thaliak.Network.Demo")]
 [assembly: AssemblyCopyright("Copyright ©  2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("aebbcbb3-7fa1-4721-bf9c-b7ca0b2401d5")]
+[assembly: Guid("653f87b8-02e9-4544-8483-9599d49ffc55")]
 
 // Version information for an assembly consists of the following four values:
 //

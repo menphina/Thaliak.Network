@@ -1,4 +1,4 @@
-﻿// Modifications copyright (C) 2019 Menphnia
+﻿// Modifications copyright (C) 2019 Menphina
 
 using System;
 using System.Collections.Generic;
@@ -11,6 +11,13 @@ namespace Thaliak.Network.Sniffer
     // ReSharper disable InconsistentNaming
     public class IPPacket
     {
+        public static int[] protocolFilters { get; } = 
+        {
+            6, // TCP
+            17, // UDP
+            132 // SCTP
+        };
+
         public int Version { get; }
         public int HeaderLength { get; }
         public int Protocol { get; }
@@ -30,7 +37,6 @@ namespace Thaliak.Network.Sniffer
 
             if (this.Version == 6)
             {
-                // TODO: experimental
                 var realHeader = FindRealHeader(data, out var len, out var dic);
 
                 this.HeaderLength = len;
@@ -57,7 +63,7 @@ namespace Thaliak.Network.Sniffer
                 return;
             }
 
-            if (Enum.IsDefined(typeof(ProtocolsWithPort), this.Protocol))
+            if (protocolFilters.Contains(this.Protocol))
             {
                 unchecked
                 {
@@ -115,15 +121,5 @@ namespace Thaliak.Network.Sniffer
                 offset += headerLength;
             }
         }
-    }
-
-    /// <summary>
-    /// Protocols that have a port abstraction
-    /// </summary>
-    internal enum ProtocolsWithPort
-    {
-        TCP = 6,
-        UDP = 17,
-        SCTP = 132
     }
 }

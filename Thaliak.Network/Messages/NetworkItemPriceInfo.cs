@@ -1,9 +1,10 @@
-﻿using System.Runtime.InteropServices;
+﻿using Milvaneth.Common;
+using System.Runtime.InteropServices;
 using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Messages
 {
-    public class NetworkItemPriceInfo : NetworkMessage
+    public class NetworkItemPriceInfo : NetworkMessageProcessor, IResult
     {
         public int ContainerSequence;
         public short ContainerId;

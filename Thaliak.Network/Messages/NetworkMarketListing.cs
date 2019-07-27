@@ -5,20 +5,14 @@ using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Messages
 {
-    public class NetworkMarketListing : NetworkMessage
+    public class NetworkMarketListing : NetworkMessageProcessor
     {
-        public List<NetworkMarketListingItem> ListingItems;
-        public byte ListingIndexEnd;
-        public byte ListingIndexStart;
-        public short RequestId;
-        public short Padding;
-
         public new static int GetMessageId()
         {
             return MessageIdRetriver.Instance.GetMessageId(MessageIdRetriveKey.NetworkMarketListing);
         }
 
-        public new static unsafe NetworkMarketListing Consume(byte[] data, int offset)
+        public new static unsafe MarketListingResult Consume(byte[] data, int offset)
         {
             fixed (byte* raw = &data[offset])
             {
@@ -27,41 +21,8 @@ namespace Thaliak.Network.Messages
         }
     }
 
-    public class NetworkMarketListingItem
-    {
-        public long ListingId;
-        public long RetainerId;
-        public long OwnerId;
-        public long CrafterId;
-        public int UnitPrice;
-        public int TotalTax;
-        public int Quantity;
-        public int ItemId;
-        public int UpdateTime;
-        public short ConatinerId;
-        public short SlotId;
-        public short Condition;
-        public short SpiritBond;
-        public short Materia1;
-        public short Materia2;
-        public short Materia3;
-        public short Materia4;
-        public short Materia5;
-        public short Unknown1;
-        public int Unknown2;
-        public string RetainerName;
-        public string PlayerName;
-        public byte IsHq;
-        public byte MateriaCount;
-        public byte OnMannequin;
-        public byte RetainerLocation;
-        public short DyeId;
-        public short Unknown3;
-        public int Unknown4;
-    }
-
     [StructLayout(LayoutKind.Explicit)]
-    public unsafe struct NetworkMarketListingRaw : INetworkMessageBase<NetworkMarketListing>
+    public unsafe struct NetworkMarketListingRaw : INetworkMessageBase<MarketListingResult>
     {
         [FieldOffset(1520)]
         public byte ListingIndexEnd;
@@ -75,11 +36,11 @@ namespace Thaliak.Network.Messages
         [FieldOffset(1524)]
         public short Padding;
 
-        public NetworkMarketListing Spawn(byte[] data, int offset)
+        public MarketListingResult Spawn(byte[] data, int offset)
         {
             const int itemSize = 152;
             const int itemCount = 10;
-            var items = new List<NetworkMarketListingItem>(itemCount);
+            var items = new List<MarketListingItem>(itemCount);
             for (var i = 0; i < itemCount; i++)
             {
                 fixed (byte* p = &data[offset + 0 + i * itemSize])
@@ -90,7 +51,7 @@ namespace Thaliak.Network.Messages
                 }
             }
 
-            return new NetworkMarketListing
+            return new MarketListingResult
             {
                 ListingItems = items,
                 ListingIndexEnd = this.ListingIndexEnd,
@@ -102,7 +63,7 @@ namespace Thaliak.Network.Messages
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    public unsafe struct NetworkMarketListingItemRaw : INetworkMessageBase<NetworkMarketListingItem>
+    public unsafe struct NetworkMarketListingItemRaw : INetworkMessageBase<MarketListingItem>
     {
         [FieldOffset(0)]
         public long ListingId;
@@ -114,7 +75,7 @@ namespace Thaliak.Network.Messages
         public long OwnerId;
 
         [FieldOffset(24)]
-        public long CrafterId;
+        public long ArtisanId;
 
         [FieldOffset(32)]
         public int UnitPrice;
@@ -185,16 +146,16 @@ namespace Thaliak.Network.Messages
         [FieldOffset(148)]
         public int Unknown4;
 
-        public NetworkMarketListingItem Spawn(byte[] data, int offset)
+        public MarketListingItem Spawn(byte[] data, int offset)
         {
             fixed (byte* p = &data[offset])
             {
-                return new NetworkMarketListingItem
+                return new MarketListingItem
                 {
                     ListingId = this.ListingId,
                     RetainerId = this.RetainerId,
                     OwnerId = this.OwnerId,
-                    CrafterId = this.CrafterId,
+                    ArtisanId = this.ArtisanId,
                     UnitPrice = this.UnitPrice,
                     TotalTax = this.TotalTax,
                     Quantity = this.Quantity,

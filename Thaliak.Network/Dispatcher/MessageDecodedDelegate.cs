@@ -1,4 +1,6 @@
-﻿namespace Thaliak.Network.Dispatcher
+﻿using Milvaneth.Common;
+
+namespace Thaliak.Network.Dispatcher
 {
-    public delegate void MessageDecoded(NetworkMessageHeader header, NetworkMessage message);
+    public delegate void MessageDecoded(NetworkMessageHeader header, IResult message);
 }

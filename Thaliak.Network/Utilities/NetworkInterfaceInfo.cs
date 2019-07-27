@@ -1,4 +1,4 @@
-﻿// Modifications copyright (C) 2019 Menphnia
+﻿// Modifications copyright (C) 2019 Menphina
 
 using System.Collections.Generic;
 using System.Linq;

@@ -1,4 +1,4 @@
-﻿// Modifications copyright (C) 2019 Menphnia
+﻿// Modifications copyright (C) 2019 Menphina
 
 using Milvaneth.Common;
 using System;
@@ -26,8 +26,6 @@ namespace Thaliak.Network.Sniffer
         {
             if (this.nextOffset + this.segmentSize > this.buffer.Length)
             {
-                Notifier.Raise(Signal.InternalException, new[] {"Buffer exhausted"});
-                Notifier.Raise(Signal.MilvanethComponentExit, new[] {"Network", "Sniffer"});
                 throw new InsufficientMemoryException("Buffer exhausted");
             }
 

@@ -4,7 +4,7 @@ using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Messages
 {
-    public class NetworkRetainerSummary : NetworkMessage
+    public class NetworkRetainerSummary : NetworkMessageProcessor, IResult
     {
         public int Unknown1;
         public int Unknown2; // BE 7F 00 00

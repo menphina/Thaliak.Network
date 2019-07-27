@@ -1,7 +1,6 @@
 ﻿using System;
-using Milvaneth.Common;
 using System.Collections.Generic;
-using System.IO;
+using Thaliak.Network.Dispatcher;
 
 namespace Thaliak.Network.Utilities
 {
@@ -15,63 +14,49 @@ namespace Thaliak.Network.Utilities
 
         private MessageIdRetriver()
         {
-            var path = Helper.GetMilFilePath("network.pack");
-            if (!File.Exists(path))
+            msgDic = new Dictionary<int, int>
             {
-                Notifier.Raise(Signal.MilvanethNeedUpdate, new[] {"Network", "MessageIdRetriver" });
-                throw new FileNotFoundException("Could not found update file");
-            }
+                [(int)MessageIdRetriveKey.VersionData] = 4550,
+                [(int)MessageIdRetriveKey.NetworkMarketHistory] = 0x012A,
+                [(int)MessageIdRetriveKey.NetworkRetainerHistory] = 0x012B,
+                [(int)MessageIdRetriveKey.NetworkMarketListing] = 0x0126,
+                [(int)MessageIdRetriveKey.NetworkMarketListingCount] = 0x0125,
+                [(int)MessageIdRetriveKey.NetworkMarketResult] = 0x0139,
+                [(int)MessageIdRetriveKey.NetworkPlayerSpawn] = 0x0175,
+                [(int)MessageIdRetriveKey.NetworkItemInfo] = 0x0196,
+                [(int)MessageIdRetriveKey.NetworkItemPriceInfo] = 0x0194,
+                [(int)MessageIdRetriveKey.NetworkRetainerSummary] = 0x0192,
+                [(int)MessageIdRetriveKey.NetworkRetainerSumEnd] = 0x0190,
+                [(int)MessageIdRetriveKey.NetworkItemInfoEnd] = 0x0193,
+                [(int)MessageIdRetriveKey.NetworkUpdateHpMpTp] = 0x0145,
+                [(int)MessageIdRetriveKey.NetworkCharacterName] = 0x018E,
 
-            var ser = new Serializer<Dictionary<int, int>>(path, "");
-            try
-            {
-                msgDic = ser.Load();
-            }
-            catch (Exception e)
-            {
-                Notifier.Raise(Signal.MilvanethNeedUpdate, new[] { "Network", "MessageIdRetriver" });
-                Notifier.Raise(Signal.InternalException, new []{ e.Message, "Network", "MessageIdRetriver", ".ctor" });
-                throw new FileNotFoundException("Could not parse update file");
-            }
+                // Below zero is send
+                [(int)MessageIdRetriveKey.NetworkLogout] = -0x0074,
+                [(int)MessageIdRetriveKey.NetworkRequestRetainer] = -0x0161,
+                [(int)MessageIdRetriveKey.NetworkInventoryModify] = -0x0146,
+
+                // OPMASK_LOBBY means lobby package
+                [(int)MessageIdRetriveKey.NetworkLobbyCharacter] = MessageDispatcher.OPMASK_LOBBY | 0x000D,
+            };
         }
 
         public int GetMessageId(MessageIdRetriveKey rawId)
         {
             if (msgDic.TryGetValue((int) rawId, out var id)) return id;
 
-            Notifier.Raise(Signal.MilvanethNeedUpdate, new[] { "Network", "MessageIdRetriver" });
-            throw new FileNotFoundException("Could not read update file");
+            throw new Exception("Message Id not found");
         }
-        
-        [Obsolete("For debug and internal use only")]
-        internal static void SetMessageId()
-        {
-            var msgId = new Dictionary<int, int>
-            {
-                [(int) MessageIdRetriveKey.NetworkCharacterName] = 0x018E,
-                [(int) MessageIdRetriveKey.NetworkMarketHistory] = 0x012A,
-                [(int) MessageIdRetriveKey.NetworkRetainerHistory] = 0x012B,
-                [(int) MessageIdRetriveKey.NetworkMarketListing] = 0x0126,
-                [(int) MessageIdRetriveKey.NetworkMarketListingCount] = 0x0125,
-                [(int) MessageIdRetriveKey.NetworkMarketResult] = 0x0139,
-                [(int) MessageIdRetriveKey.NetworkPlayerSpawn] = 0x0175,
-                [(int) MessageIdRetriveKey.NetworkItemInfo] = 0x0196,
-                [(int) MessageIdRetriveKey.NetworkItemPriceInfo] = 0x0194,
-                // below zero means client packet
-                [(int) MessageIdRetriveKey.NetworkLogout] = -0x0074,
-                [(int) MessageIdRetriveKey.NetworkLogoutCancel] = -0x0075,
 
-                [(int) MessageIdRetriveKey.NetworkRetainerSummary] = 0x0192,
-            };
-            var path = Helper.GetMilFilePath("network.pack");
-            var ser = new Serializer<Dictionary<int, int>>(path, "");
-            ser.Save(msgId);
+        public int GetVersion()
+        {
+            return GetMessageId(MessageIdRetriveKey.VersionData);
         }
     }
 
     public enum MessageIdRetriveKey
     {
-        NetworkCharacterName = 0,
+        VersionData = 0,
         NetworkMarketHistory = 1,
         NetworkRetainerHistory = 2,
         NetworkMarketListing = 3,
@@ -81,8 +66,13 @@ namespace Thaliak.Network.Utilities
         NetworkItemInfo = 7,
         NetworkItemPriceInfo = 8,
         NetworkLogout = 9,
-        NetworkLogoutCancel = 10,
-        NetworkRetainerSummary = 11,
-
+        NetworkRetainerSummary = 10,
+        NetworkRetainerSumEnd = 11,
+        NetworkItemInfoEnd = 12,
+        NetworkUpdateHpMpTp = 13,
+        NetworkLobbyCharacter = 14,
+        NetworkCharacterName = 15,
+        NetworkRequestRetainer = 16,
+        NetworkInventoryModify = 17,
     }
 }

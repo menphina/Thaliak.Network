@@ -1,12 +1,13 @@
-﻿using System.Runtime.InteropServices;
+﻿using Milvaneth.Common;
+using System.Runtime.InteropServices;
 using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Messages
 {
-    public class NetworkPlayerSpawn : NetworkMessage
+    public class NetworkPlayerSpawn : NetworkMessageProcessor, IResult
     {
-        public int CurrentWorldId;
-        public int HomeWorldId;
+        public short CurrentWorldId;
+        public short HomeWorldId;
 
         public new static int GetMessageId()
         {
@@ -26,10 +27,10 @@ namespace Thaliak.Network.Messages
     public struct NetworkPlayerSpawnRaw : INetworkMessageBase<NetworkPlayerSpawn>
     {
         [FieldOffset(4)]
-        public int CurrentWorldId;
+        public short CurrentWorldId;
 
         [FieldOffset(6)]
-        public int HomeWorldId;
+        public short HomeWorldId;
 
         public NetworkPlayerSpawn Spawn(byte[] data, int offset)
         {

@@ -1,5 +1,4 @@
-﻿using Milvaneth.Common;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -59,7 +58,7 @@ namespace Thaliak.Network.Utilities
             }
             catch (Exception e)
             {
-                Notifier.Raise(Signal.InternalException, new []{$"GetLobbyEndPoint Failed in Connection Picker: \n{e.Message}", "Network", "ConnectionPicker", "GetLobbyEndPoint" });
+                Debug.WriteLine(e);
                 return null;
             }
 
@@ -106,17 +105,12 @@ namespace Thaliak.Network.Utilities
                 }
                 else
                 {
-                    Notifier.Raise(Signal.InternalUnmanagedException,
-                        new []{$"GetExtendedTcpTable Failed in Connection Picker: {Marshal.GetLastWin32Error()}", "Network", "ConnectionPicker", "GetConnections" });
-                    if(connections.Count == 0)
-                        Notifier.Raise(Signal.MilvanethComponentExit, new[] { "Network", "ConnectionPicker" });
+                    Debug.WriteLine(Marshal.GetLastWin32Error());
                 }
             }
             catch (Exception ex)
             {
-                Notifier.Raise(Signal.InternalException, new []{ex.Message, "Network", "ConnectionPicker", "GetConnections" });
-                if (connections.Count == 0)
-                    Notifier.Raise(Signal.MilvanethComponentExit, new[] { "Network", "ConnectionPicker" });
+                Debug.WriteLine(ex);
             }
             finally
             {

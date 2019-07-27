@@ -1,9 +1,10 @@
 ﻿using System.Runtime.InteropServices;
+using Milvaneth.Common;
 using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Messages
 {
-    public class NetworkItemInfo : NetworkMessage
+    public class NetworkItemInfo : NetworkMessageProcessor, IResult
     {
         public int ContainerSequence;
         public int Unknown1;
@@ -12,12 +13,13 @@ namespace Thaliak.Network.Messages
         public int Quantity;
         public int ItemId;
         public int ReservedFlag;
-        public long CrafterId;
+        public long ArtisanId;
         public byte IsHq;
         public byte Unknown2;
         public short Condition;
         public short SpiritBond;
-        public short DyeId;
+        public byte DyeId;
+        public byte Unknown3;
         public int GlamourItemId;
         public short Materia1;
         public short Materia2;
@@ -30,7 +32,7 @@ namespace Thaliak.Network.Messages
         public byte Buffer4;
         public byte Buffer5;
         public byte Padding;
-        public int Unknown3;
+        public int Unknown4;
 
         public new static int GetMessageId()
         {
@@ -71,7 +73,7 @@ namespace Thaliak.Network.Messages
         public int ReservedFlag;
 
         [FieldOffset(24)]
-        public long CrafterId;
+        public long ArtisanId;
 
         [FieldOffset(32)]
         public byte IsHq;
@@ -86,7 +88,10 @@ namespace Thaliak.Network.Messages
         public short SpiritBond;
 
         [FieldOffset(38)]
-        public short DyeId;
+        public byte DyeId;
+
+        [FieldOffset(39)]
+        public byte Unknown3;
 
         [FieldOffset(40)]
         public int GlamourItemId;
@@ -125,7 +130,7 @@ namespace Thaliak.Network.Messages
         public byte Padding;
 
         [FieldOffset(60)]
-        public int Unknown3;
+        public int Unknown4;
 
         public NetworkItemInfo Spawn(byte[] data, int offset)
         {
@@ -138,12 +143,13 @@ namespace Thaliak.Network.Messages
                 Quantity = this.Quantity,
                 ItemId = this.ItemId,
                 ReservedFlag = this.ReservedFlag,
-                CrafterId = this.CrafterId,
+                ArtisanId = this.ArtisanId,
                 IsHq = this.IsHq,
                 Unknown2 = this.Unknown2,
                 Condition = this.Condition,
                 SpiritBond = this.SpiritBond,
                 DyeId = this.DyeId,
+                Unknown3 = this.Unknown3,
                 GlamourItemId = this.GlamourItemId,
                 Materia1 = this.Materia1,
                 Materia2 = this.Materia2,
@@ -156,7 +162,7 @@ namespace Thaliak.Network.Messages
                 Buffer4 = this.Buffer4,
                 Buffer5 = this.Buffer5,
                 Padding = this.Padding,
-                Unknown3 = this.Unknown3,
+                Unknown4 = this.Unknown4,
             };
         }
     }

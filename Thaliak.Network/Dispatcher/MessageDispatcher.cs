@@ -1,83 +1,101 @@
-﻿using System;
+﻿using Milvaneth.Common;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Thaliak.Network.Analyzer;
+using Thaliak.Network.Filter;
 
 namespace Thaliak.Network.Dispatcher
 {
     public class MessageDispatcher : IAnalyzerOutput
     {
+        public const int OPMASK_LOBBY = 0x000A_0000;
+
         private const int HeaderLength = 32;
 
         private bool _isStopping;
         private long _messagesDispatched;
-        
+
         private readonly BlockingCollection<RoutedMessage> _outputQueue;
-        private readonly Dictionary<int, Type> _consumerTypes;
+        private readonly Dictionary<int, MessageConsumerDelegate> _consumerTypes;
         private readonly Dictionary<int, MessageDecoded> _listeners;
 
         public long MessagesDispatched => _messagesDispatched;
-        public long RequestsInQueue => this._outputQueue.Count;
 
         public MessageDispatcher(IEnumerable<Type> consumers)
         {
             this._outputQueue = new BlockingCollection<RoutedMessage>();
-            _consumerTypes = new Dictionary<int, Type>();
+            _consumerTypes = new Dictionary<int, MessageConsumerDelegate>();
             _listeners = new Dictionary<int, MessageDecoded>();
 
             foreach (var consumer in consumers)
             {
-                if(!consumer.IsSubclassOf(typeof(NetworkMessage)))
-                    throw new InvalidOperationException($"Not inherited from {nameof(NetworkMessage)}");
+                if(!consumer.IsSubclassOf(typeof(NetworkMessageProcessor)))
+                    throw new InvalidOperationException($"Not inherited from {nameof(NetworkMessageProcessor)}");
 
-                var method = consumer.GetMethod(nameof(NetworkMessage.GetMessageId));
+                var method = consumer.GetMethod(nameof(NetworkMessageProcessor.GetMessageId));
 
                 var opCode = (int)method.Invoke(null, new object[] { });
-                _consumerTypes.Add(opCode, consumer);
+                var consume = (MessageConsumerDelegate) Delegate.CreateDelegate(typeof(MessageConsumerDelegate),
+                    consumer.GetMethod(nameof(NetworkMessageProcessor.Consume)) ??
+                    throw new InvalidOperationException("Invalid Processor"), true);
+
+                _consumerTypes.Add(opCode, consume);
             }
         }
 
         public unsafe void Output(AnalyzedPacket analyzedPacket)
         {
-            if (analyzedPacket.Message.Length < HeaderLength) return;
-            
             // for default filter set we use, every single filter is mutually exclusive.
-            var direction = analyzedPacket.RouteMark.First().GetDirection();
+            if (analyzedPacket.Message.Length < HeaderLength) return;
 
             NetworkMessageHeader header;
+
             fixed (byte* p = &analyzedPacket.Message[0])
             {
-                header = *(NetworkMessageHeader*) p;
+                header = *(NetworkMessageHeader*)p;
             }
 
             int opcode = header.OpCode;
-            if (direction != MessageAttribute.DirectionReceive) opcode = -opcode;
 
-            if (!_consumerTypes.TryGetValue(opcode, out var consumer)) return;
-            if (!_listeners.TryGetValue(opcode, out var listener) || listener == null) return;
+            if (analyzedPacket.RouteMark.GetCatalog() == MessageAttribute.CatalogLobby)
+                opcode |= OPMASK_LOBBY;
 
-            EnqueueOutput(new RoutedMessage(header, HeaderLength, analyzedPacket.Message, consumer, listener));
+            if (analyzedPacket.RouteMark.GetDirection() == MessageAttribute.DirectionSend)
+                opcode = -opcode;
+
+            if (!_consumerTypes.TryGetValue(opcode, out var consumer))
+                return;
+
+            if (!_listeners.TryGetValue(opcode, out var listener) || listener == null)
+                return;
+
+            var rm = new RoutedMessage(header, HeaderLength, analyzedPacket.Message, consumer, listener);
+
+            EnqueueOutput(rm);
         }
 
         public void Start()
         {
-            Task.Factory.StartNew(() =>
+            this._isStopping = false;
+
+            Task.Run(() =>
             {
                 foreach (var data in this._outputQueue.GetConsumingEnumerable())
                 {
                     try
                     {
-                        var output = (NetworkMessage) data.Consumer.GetMethod(nameof(NetworkMessage.Consume))
-                            .Invoke(null, new object[] {data.Message, data.HeaderLength});
+                        var output = data.Consumer(data.Message, data.HeaderLength);
 
                         data.Listener(data.Header, output);
                         Interlocked.Increment(ref this._messagesDispatched);
                     }
-                    catch
+                    catch(Exception e)
                     {
+                        Debug.WriteLine(e);
                     }
                 }
             });
@@ -104,6 +122,11 @@ namespace Thaliak.Network.Dispatcher
             if (listener != null) _listeners[opcode] -= listener;
 
             if (_listeners[opcode] == null) _listeners.Remove(opcode);
+        }
+
+        public void UnsubAll()
+        {
+            _listeners.Clear();
         }
 
         private void EnqueueOutput(RoutedMessage data)

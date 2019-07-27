@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("Thaliak.Network")]
-[assembly: AssemblyCopyright("Copyright © Menphnia 2019")]
+[assembly: AssemblyCopyright("Copyright © Menphina 2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

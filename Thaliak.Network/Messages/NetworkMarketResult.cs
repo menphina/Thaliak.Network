@@ -1,23 +1,18 @@
-﻿using System.Collections.Generic;
+﻿using Milvaneth.Common;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Messages
 {
-    public class NetworkMarketResult : NetworkMessage
+    public class NetworkMarketResult : NetworkMessageProcessor
     {
-        public List<NetworkMarketResultItem> ResultItems;
-        public int ItemIndexEnd;
-        public int Padding;
-        public int ItemIndexStart;
-        public int RequestId;
-
         public new static int GetMessageId()
         {
             return MessageIdRetriver.Instance.GetMessageId(MessageIdRetriveKey.NetworkMarketResult);
         }
 
-        public new static unsafe NetworkMarketResult Consume(byte[] data, int offset)
+        public new static unsafe MarketOverviewResult Consume(byte[] data, int offset)
         {
             fixed (byte* raw = &data[offset])
             {
@@ -27,7 +22,7 @@ namespace Thaliak.Network.Messages
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    public unsafe struct NetworkMarketResultRaw : INetworkMessageBase<NetworkMarketResult>
+    public unsafe struct NetworkMarketResultRaw : INetworkMessageBase<MarketOverviewResult>
     {
         [FieldOffset(160)]
         public int ItemIndexEnd;
@@ -41,22 +36,22 @@ namespace Thaliak.Network.Messages
         [FieldOffset(172)]
         public int RequestId;
 
-        public NetworkMarketResult Spawn(byte[] data, int offset)
+        public MarketOverviewResult Spawn(byte[] data, int offset)
         {
             const int itemSize = 8;
             const int itemCount = 20;
-            var items = new List<NetworkMarketResultItem>(itemCount);
+            var items = new List<MarketOverviewItem>(itemCount);
             for (var i = 0; i < itemCount; i++)
             {
                 fixed (byte* p = &data[offset + 0 + i * itemSize])
                 {
-                    var item = *(NetworkMarketResultItem*) p;
+                    var item = (*(NetworkMarketResultItem*) p).Spawn(data, offset);
                     if(item.ItemId != 0)
                         items.Add(item);
                 }
             }
 
-            return new NetworkMarketResult
+            return new MarketOverviewResult
             {
                 ResultItems = items,
                 ItemIndexEnd = this.ItemIndexEnd,
@@ -68,7 +63,7 @@ namespace Thaliak.Network.Messages
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    public struct NetworkMarketResultItem
+    public struct NetworkMarketResultItem : INetworkMessageBase<MarketOverviewItem>
     {
         [FieldOffset(0)]
         public int ItemId;
@@ -78,5 +73,15 @@ namespace Thaliak.Network.Messages
 
         [FieldOffset(6)]
         public short Demand;
+
+        public MarketOverviewItem Spawn(byte[] data, int offset)
+        {
+            return new MarketOverviewItem
+            {
+                ItemId = this.ItemId,
+                OpenListing = this.OpenListing,
+                Demand = this.Demand,
+            };
+        }
     }
 }

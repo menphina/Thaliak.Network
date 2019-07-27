@@ -1,9 +1,10 @@
-﻿using System.Runtime.InteropServices;
+﻿using Milvaneth.Common;
+using System.Runtime.InteropServices;
 using Thaliak.Network.Utilities;
 
 namespace Thaliak.Network.Messages
 {
-    public class NetworkMarketListingCount : NetworkMessage
+    public class NetworkMarketListingCount : NetworkMessageProcessor, IResult
     {
         public int ItemId;
         public int Unknown1;

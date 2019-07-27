@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Net;
+using System.Threading;
 using Thaliak.Network.Analyzer;
 using Thaliak.Network.Dispatcher;
 using Thaliak.Network.Filter;
@@ -10,78 +13,120 @@ using Thaliak.Network.Utilities;
 namespace Thaliak.Network
 {
     // This is the 'default' entry class of Thaliak.Network, which bundles three sub-components
-    public class GameNetworkMonitor
+    // We use StaticallyLinkedMessageDispatcher to improve performance.
+    public class GameNetworkMonitor : IDisposable
     {
         public Process ProcessWorking { get; }
-        public NetworkInterfaceInfo NetworkInterface { get; }
-        public Filters<IPPacket> FilterSet { get; }
         public IEnumerable<Type> ConsumerSet { get; }
-        public long PacketsObserved => sniffer.PacketsObserved;
-        public long PacketsCaptured => sniffer.PacketsCaptured;
-        public long PacketsAnalyzed => analyzer.PacketsAnalyzed;
-        public long MessagesProcessed => analyzer.MessagesProcessed;
-        public long MessagesDispatched => dispatcher.MessagesDispatched;
-        public long PacketsInQueue => sniffer.PacketsInQueue;
-        public long MessagesInQueue => analyzer.MessagesInQueue;
-        public long RequestsInQueue => dispatcher.RequestsInQueue;
+        public long PacketsObserved => _sniffer?.PacketsObserved ?? -1;
+        public long PacketsCaptured => _sniffer?.PacketsCaptured ?? -1;
+        public long PacketsAnalyzed => _analyzer.PacketsAnalyzed;
+        public long MessagesProcessed => _analyzer.MessagesProcessed;
+        public long MessagesDispatched => _dispatcher.MessagesDispatched;
 
+        private readonly MessageDispatcher _dispatcher;
+        private readonly PacketAnalyzer _analyzer;
+        private SocketSniffer _sniffer;
+        private IPAddress _interfaceAddress;
 
-        private readonly MessageDispatcher dispatcher;
-        private readonly PacketAnalyzer analyzer;
-        private readonly SocketSniffer sniffer;
-
-        public GameNetworkMonitor(Process p)
+        public GameNetworkMonitor(Process p, string @namespace)
         {
             this.ProcessWorking = p;
 
-            var nic = NetworkInterfaceInfo.GetDefaultInterface();
-            var filters = FilterBuilder.BuildDefaultFilter(p);
-            var consumers = ConsumerSearcher.FindConsumers("Thaliak.Network.Messages");
+            var consumers = ConsumerSearcher.FindConsumers(@namespace);
 
-            NetworkInterface = nic;
-            FilterSet = filters;
             ConsumerSet = consumers;
 
-            dispatcher = new MessageDispatcher(ConsumerSet);
-            analyzer = new PacketAnalyzer(FilterSet, dispatcher);
-            sniffer = new SocketSniffer(NetworkInterface, FilterSet, analyzer);
-        }
-
-        public GameNetworkMonitor(Process p, NetworkInterfaceInfo nic, Filters<IPPacket> filters, IEnumerable<Type> consumers)
-        {
-            this.ProcessWorking = p;
-
-            NetworkInterface = nic;
-            FilterSet = filters;
-            ConsumerSet = consumers;
-
-            dispatcher = new MessageDispatcher(ConsumerSet);
-            analyzer = new PacketAnalyzer(FilterSet, dispatcher);
-            sniffer = new SocketSniffer(NetworkInterface, FilterSet, analyzer);
+            _dispatcher = new MessageDispatcher(ConsumerSet);
+            _analyzer = new PacketAnalyzer(_dispatcher);
         }
 
         public void Start()
         {
-            dispatcher.Start();
-            analyzer.Start();
-            sniffer.Start();
+            var conn = ConnectionPicker.GetConnections(ProcessWorking);
+
+            while (!conn.Any())
+            {
+                Thread.Sleep(50);
+                conn = ConnectionPicker.GetConnections(ProcessWorking);
+            }
+
+            var filters = FilterBuilder.BuildDefaultFilter(conn);
+            var lobby = ConnectionPicker.GetLobbyEndPoint(ProcessWorking);
+            filters.PropertyFilters.Add(new PropertyFilter<IPPacket>(x => x.Remote, lobby,
+                MessageAttribute.DirectionSend | MessageAttribute.CatalogLobby));
+            filters.PropertyFilters.Add(new PropertyFilter<IPPacket>(x => x.Local, lobby,
+                MessageAttribute.DirectionReceive | MessageAttribute.CatalogLobby));
+
+            Start(conn.First().LocalEndPoint.Address, filters);
+        }
+
+        public void Start(IPAddress nicAddress, Filters<IPPacket> filters)
+        {
+            if (_sniffer == null || !nicAddress.Equals(_interfaceAddress))
+            {
+                RecycleSniffer(nicAddress, filters);
+                _interfaceAddress = nicAddress;
+            }
+
+            _dispatcher.Start();
+            _analyzer.Start();
+            _sniffer.Resume(filters);
         }
         
         public void Stop()
         {
-            sniffer.Stop();
-            analyzer.Stop();
-            dispatcher.Stop();
+            _sniffer.Pause();
+            _analyzer.Stop();
+            _dispatcher.Stop();
         }
 
-        public void Subcribe(int opcode, MessageDecoded listener)
+        public void Update(IPAddress nicAddress, Filters<IPPacket> filters)
         {
-            dispatcher.Subcribe(opcode, listener);
+            if (_sniffer == null || !nicAddress.Equals(_interfaceAddress))
+            {
+                RecycleSniffer(nicAddress, filters);
+                _interfaceAddress = nicAddress;
+            }
+
+            _sniffer.Update(filters);
         }
 
-        public void Unsubcribe(int opcode, MessageDecoded listener)
+        public void Dispose()
         {
-            dispatcher.Unsubcribe(opcode, listener);
+            _sniffer.Stop();
+            _analyzer.Stop();
+            _dispatcher.Stop();
+            _analyzer.Dispose();
+        }
+
+        public void Subscribe(int opcode, MessageDecoded listener)
+        {
+            _dispatcher.Subcribe(opcode, listener);
+        }
+
+        public void Unsubscribe(int opcode, MessageDecoded listener)
+        {
+            _dispatcher.Unsubcribe(opcode, listener);
+        }
+
+        public void UnsubAll()
+        {
+            _dispatcher.UnsubAll();
+        }
+
+        private void RecycleSniffer(IPAddress nicAddress, Filters<IPPacket> filters)
+        {
+            if (_sniffer != null)
+            {
+                _sniffer.Pause();
+                _sniffer.Stop();
+                _sniffer = null;
+            }
+
+            _sniffer = new SocketSniffer(nicAddress, filters, _analyzer);
+            _sniffer.Start();
+            _sniffer.Resume(filters);
         }
     }
 }
