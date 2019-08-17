@@ -20,7 +20,7 @@ This repository is a partial mirror of a internal repository, so it not reflecti
 
 5. Stop them when needed.
 
-For actual workable code, see [Demo.cs](https://github.com/menphina/Thaliak.Network/blob/master/Thaliak.Network/Demo.cs).
+For actual workable code, see [Demo](https://github.com/menphina/Thaliak.Network/blob/master/Thaliak.NetworkDemo/Program.cs).
 
 > Do you support lobby connection
 
