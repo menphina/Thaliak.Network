@@ -6,6 +6,8 @@ Its main function is to identify, filter and analyze FFXIV game data packages. S
 
 This repository is a partial mirror of a internal repository, so it not reflecting the current status of development, but we will accept issues and pull requests here.
 
+__The Milvaneth, along with full Thaliak framework, has been published [here](https://github.com/menphina/Milvaneth).__
+
 # Q & A
 
 > How to use it
